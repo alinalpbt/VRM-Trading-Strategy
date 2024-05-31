@@ -1,6 +1,7 @@
 //@version=5
-// 1 vmma上下轨 + rsi+1/2mfi
-strategy("MFS Strategy", 
+// 1 vwma上下轨 + rsi+1/2mfi
+// 策略介绍
+strategy("VRM Strategy", 
    overlay=true, // 允许策略叠加在图表上
    max_labels_count = 100,  // 设置图表上最多显示的标签数量
    pyramiding = 4,  //金字塔加仓次数
@@ -46,7 +47,7 @@ int endTime = input.time(timestamp('31 Dec 2077 00:00 +0000'), "结束时间", g
 
 // 视觉效果
 // bool displayLabels = input(true, "显示标签", group=visual_group)
-string tablePosition = input.string("Top Right", title="标签位置", options=["Top Right", "Middle Right", "Top Center", "Middle Left", "Middle Center", "Bottom Left", "Bottom Center", "Bottom Right"], group=visual_group)
+string tablePosition = input.string("Top Right", title="表格位置", options=["Top Right", "Middle Right", "Top Center", "Middle Left", "Middle Center", "Bottom Left", "Bottom Center", "Bottom Right"], group=visual_group)
 color textColor = input.color(white, "文本颜色", group=visual_group)
 bool displayDealLines = input(true, "显示交易线", group=visual_group)
 color profitColor = input.color(gray, "盈利颜色", group=visual_group)
@@ -68,10 +69,6 @@ var int glb_dealstart_bar_time = na  // 全局交易开始时间
 
 
 
-
-
-
-
 //核心交易逻辑开始------------------------{
 // 计算成交量加权移动平均（Volume Weighted Moving Average），使用周期为Length
 float core = ta.vwma(hlc3, Length)  
@@ -89,8 +86,8 @@ float mf = ta.mfi(hlc3, 7)
 float rsi_mfi = math.abs(rsi + mf / 2)
 
 // 生成交易信号
-long = low <= vwma_below and (rsi_mfi < below)  
-short = high >= vwma_above and (rsi_mfi > above)  
+long = (low <= vwma_below) and (rsi_mfi < below)  
+short = (high >= vwma_above) and (rsi_mfi > above)  
 //----------------}
 
 
@@ -98,11 +95,11 @@ short = high >= vwma_above and (rsi_mfi > above)
 
 // 一些系列策略相关功能-----------------------{
 // 计算止损价格的函数，mintick的计算很有意思
-calcNextStopLossPrice(percent) =>
+calcNextStopLossPrice() =>
     if strategy.position_size > 0
-        strategy.position_avg_price - (math.round(percent / 100 * strategy.position_avg_price / syminfo.mintick)) * syminfo.mintick
+        strategy.position_avg_price - (math.round(priceChangeForSO  / 100 * strategy.position_avg_price / syminfo.mintick)) * syminfo.mintick
     else if strategy.position_size < 0
-        strategy.position_avg_price + (math.round(percent / 100 * strategy.position_avg_price / syminfo.mintick)) * syminfo.mintick
+        strategy.position_avg_price + (math.round(priceChangeForSO  / 100 * strategy.position_avg_price / syminfo.mintick)) * syminfo.mintick
     else
         na
 
@@ -130,7 +127,7 @@ calculateOrderSize(orderNumber) =>
 
 // 定义止损条件
 stopLossConditions() =>
-    calcPriceChangeFromLastDeal() > priceChangeForSO and close < calcNextStopLossPrice(priceChangeForSO)
+    calcPriceChangeFromLastDeal() > priceChangeForSO and close < calcNextStopLossPrice()
 
 // 执行最小止盈逻辑条件
 minimumProfitLogic() =>
@@ -209,20 +206,19 @@ if strategy.position_size > 0 and short and (minimumTakeProfit ? minimumProfitLo
 //-----------}
 
 
-
 // 绘制交易信号和阈值线-----------------------{
 // VMMA上轨和下轨显示
-// hp = plot(vwma_above, "VWMA 上轨", color=color.new(color.red, 0))
-// lp = plot(vwma_below, "VWMA 下轨", color=color.new(color.green, 0))
-// mp = plot(core, color = white)
+hp = plot(vwma_above, "VWMA 上轨", color=color.new(color.red, 0))
+lp = plot(vwma_below, "VWMA 下轨", color=color.new(color.green, 0))
+mp = plot(core, color = white)
 
 // 买入和卖出信号形状
-plotshape(series=long and not long[1], title="买入信号", style=shape.labelup, location=location.belowbar, color=color.new(color.green, 0), size=size.tiny, text="买")
+plotshape(series=long, title="买入信号", style=shape.labelup, location=location.belowbar, color=color.new(color.green, 0), size=size.tiny, text="买")
 plotshape(series=short, title="卖出信号", style=shape.labeldown, location=location.abovebar, color=color.new(color.red, 0), size=size.tiny, text="卖")
 
 // 图表绘制逻辑，绘制平均价格、止损价格和止盈价格
 avgPriceLine = plot(displayDealLines ? strategy.position_avg_price : na, "平均价格", color=averageColor, style=plot.style_linebr, editable=false)
-stopLossLine = plot(displayDealLines ? calcNextStopLossPrice(priceChangeForSO) : na, "止损线", color=color.orange, style=plot.style_linebr, editable=false)
+stopLossLine = plot(displayDealLines ? calcNextStopLossPrice() : na, "止损线", color=color.orange, style=plot.style_linebr, editable=false)
 takeProfitLine = plot(displayDealLines ? strategy.position_avg_price * (1 + minimumTakeProfit) : na, "止盈线", color=color.rgb(3, 233, 245), style=plot.style_linebr, editable=false)
 
 // 填充颜色以示区域
@@ -252,7 +248,7 @@ table_position() =>
         "Middle Right" => position.middle_right
         "Bottom Left" => position.bottom_left
         "Bottom Center" => position.bottom_center
-        "Bottom Right" => position.bottom_right      
+        "Bottom Right" => position.bottom_right
 
 // 创建信息展示表格
 var summary_table = table.new(position = table_position(), columns = 2, rows = 4, frame_color = color.rgb(101, 101, 101, 80), frame_width = 2, border_width = 2)
@@ -265,7 +261,7 @@ table_cell(_table, _row, in1, in2) =>
 // 填充表格函数
 fillTable(summary_table) =>
     // 添加表头并设置样式
-    table.cell(summary_table, 0, 0, text = 'MFS Strategy [Alin]', text_color = textColor, bgcolor = color.rgb(101, 101, 101, 80))
+    table.cell(summary_table, 0, 0, text='VRM Strategy [Alin]', text_color=textColor, bgcolor=color.rgb(101, 101, 101, 80))
     table.merge_cells(summary_table, 0, 0, 1, 0)
 
     // 交易状态
@@ -282,8 +278,8 @@ fillTable(summary_table) =>
 
 // 随着bar更新table
 if barstate.isconfirmed
-    summary_table = table.new(position.top_right, 2, 10)
+    if not na(summary_table)
+        table.clear(summary_table, 0, 0, 1, 3)  // 确保每次更新时清空表格
+    summary_table := table.new(position=table_position(), columns=2, rows=4, frame_color=color.rgb(101, 101, 101, 80), frame_width=2, border_width=2)
     fillTable(summary_table)
 //-------}
-
-
