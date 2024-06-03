@@ -196,7 +196,7 @@ if long and strategy.opentrades == 0 and in_date_range
     executeTrade("open", "D # " + str.tostring(dealcount), baseOrderAmount / close)
 
 // 加仓逻辑
-if long and stopLossConditions() and strategy.opentrades > 0 and strategy.opentrades < numberOfDCAOrders
+if long and stopLossConditions() and strategy.opentrades > 0 and strategy.opentrades < numberOfDCAOrders and in_date_range
     qty = DCAType ? (strategy.position_size * dcaMultiplier) : calculateOrderSize(socounter) / close
     executeTrade("add", "SO # " + str.tostring(socounter), qty)
 
@@ -278,8 +278,6 @@ fillTable(summary_table) =>
 
 // 随着bar更新table
 if barstate.isconfirmed
-    if not na(summary_table)
-        table.clear(summary_table, 0, 0, 1, 3)  // 确保每次更新时清空表格
-    summary_table := table.new(position=table_position(), columns=2, rows=4, frame_color=color.rgb(101, 101, 101, 80), frame_width=2, border_width=2)
+    table.clear(summary_table, 0, 0, 1, 3)
     fillTable(summary_table)
 //-------}
