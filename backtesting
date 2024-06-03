@@ -193,12 +193,12 @@ executeTrade(type, comment, qty = 0) =>
 
 // 开仓逻辑
 if long and strategy.opentrades == 0 and in_date_range
-    executeTrade("open", "D # " + str.tostring(dealcount), baseOrderAmount / close)
+    executeTrade("open", "D # " + str.tostring(strategy.closedtrades + 1), baseOrderAmount / close)
 
 // 加仓逻辑
 if long and stopLossConditions() and strategy.opentrades > 0 and strategy.opentrades < numberOfDCAOrders
     qty = DCAType ? (strategy.position_size * dcaMultiplier) : calculateOrderSize(socounter) / close
-    executeTrade("add", "SO # " + str.tostring(socounter), qty)
+    executeTrade("add", "SO # " + str.tostring(strategy.opentrades), qty)
 
 // 平仓逻辑
 if strategy.position_size > 0 and short and (minimumTakeProfit ? minimumProfitLogic() : true) and in_date_range
