@@ -191,6 +191,7 @@ executeTrade(type, comment, qty = 0) =>
         if displayPnLLabel
             plotPNLLabel()
 
+// Long
 // 开仓逻辑
 if long and strategy.opentrades == 0 and in_date_range
     executeTrade("open", "D # " + str.tostring(strategy.closedtrades + 1), baseOrderAmount / close)
@@ -200,9 +201,18 @@ if long and stopLossConditions() and strategy.opentrades > 0 and strategy.opentr
     qty = DCAType ? (strategy.position_size * dcaMultiplier) : calculateOrderSize(socounter) / close
     executeTrade("add", "SO # " + str.tostring(strategy.opentrades), qty)
 
-// 平仓逻辑
+// 平仓逻辑（todo:如果有仓位+止盈+有short信号，则平仓；或者如果有仓位，满足止损，则平仓，增加一种平仓可能，但表现很差，故先注释）
 if strategy.position_size > 0 and short and (minimumTakeProfit ? minimumProfitLogic() : true) and in_date_range
     executeTrade("close", "")
+//else
+//    if strategy.position_size > 0 and stopLossConditions() and in_date_range
+//        executeTrade("close", "")
+
+//Short
+// 开仓逻辑（if short and 未开仓 and 时间范围）
+// 加仓逻辑（if short 且 已开仓 且 少于次数 且 ）
+// 平仓逻辑（if 价格满足止盈或止损，else if 有long新号，且止损）
+
 //-----------}
 
 
