@@ -97,9 +97,9 @@ short = (high >= vwma_above) and (rsi_mfi > above)
 // 计算止损价格的函数，mintick的计算很有意思
 calcNextStopLossPrice() =>
     if strategy.position_size > 0
-        strategy.position_avg_price - (math.round(priceChangeForSO  / 100 * strategy.position_avg_price / syminfo.mintick)) * syminfo.mintick
+        strategy.position_avg_price - (math.round(priceChangeForSO * strategy.position_avg_price / syminfo.mintick)) * syminfo.mintick
     else if strategy.position_size < 0
-        strategy.position_avg_price + (math.round(priceChangeForSO  / 100 * strategy.position_avg_price / syminfo.mintick)) * syminfo.mintick
+        strategy.position_avg_price + (math.round(priceChangeForSO * strategy.position_avg_price / syminfo.mintick)) * syminfo.mintick
     else
         na
 
