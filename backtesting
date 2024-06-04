@@ -24,7 +24,7 @@ color blue = color.rgb(7, 77, 17, 30)
 string strategy_group = "策略设置"
 string dca_group = "DCA设置"
 string date_group = "日期设置"
-string visual_group = "视觉设置" 
+string visual_group = "视觉设置"
 
 // 策略参数
 float ChangePercentage = input.float(1.4, 'MFS系数（0-5）', group='strategy_group', tooltip="可以理解为价格波动，时间周期越短，数字越小")
@@ -157,12 +157,12 @@ calcPositionProfit() =>
 plotPNLLabel() =>
     // 初始化消息内容
     message = ""    
-    message += "PNL :  " + str.tostring(math.round(calcPositionProfit(), 2)) + '  ' + str.tostring(syminfo.currency) + '\n'
-    message += "时间:  " + getTimeSpanAsString(glb_dealstart_bar_time, time)+ '\n'
-    message += "PNL%:  " + str.tostring(math.round(calcProfitPercent(),2))+ " %"
-    topy = high + (high* 0.04)  
+    message += "PNL: " + str.tostring(math.round(calcPositionProfit(), 2)) + ' ' + str.tostring(syminfo.currency) + '\n'
+    message += "时间: " + getTimeSpanAsString(glb_dealstart_bar_time, time) + '\n'
+    message += "PNL%: " + str.tostring(math.round(calcProfitPercent(), 2)) + " %"
+    topy = high + (high * 0.04)
     // 创建新标签
-    label.new(bar_index + 1, y=high, text=message, yloc=yloc.price, style=label.style_label_lower_left, textcolor=white, textalign=text.align_left, color=pnlColor)
+    label.new(bar_index + 1, y=topy, text=message, yloc=yloc.price, style=label.style_label_lower_left, textcolor=white, textalign=text.align_left, color=pnlColor)
 
 // 查看是否已开仓
 isOpenTrade() =>
@@ -181,19 +181,30 @@ calcCurrentPNLPercentage() =>
 // 开仓加仓平仓逻辑-----------------------{
 // 执行交易的函数，增加默认qty参数值
 executeTrade(type, comment, qty = 0) =>
+    var int trade_time = na
     if type == "open" or type == "add"
         if qty != 0
             strategy.entry("LONG", strategy.long, comment=comment, qty=qty)
             alert(type == "open" ? "新做多交易 {{ticker}}" : "新DCA交易 {{ticker}}", freq=alert.freq_once_per_bar_close)
+            if type == "open"
+                trade_time := time  // 返回开仓时间
+            else
+                trade_time := time  // 返回当前时间
     if type == "close"
         strategy.close("LONG", comment=" ")
         alert("交易平仓 {{ticker}}", freq=alert.freq_once_per_bar_close)
-        if displayPnLLabel
-            plotPNLLabel()
+        trade_time := time // 返回当前时间
+    trade_time
+
+// 时间主逻辑
+var int open_time = na
+var int close_time = na
 
 // Long 开仓逻辑
 if long and strategy.opentrades == 0 and in_date_range
-    executeTrade("open", "D # " + str.tostring(strategy.closedtrades + 1), baseOrderAmount / close)
+    open_time := executeTrade("open", "D # " + str.tostring(strategy.closedtrades + 1), baseOrderAmount / close)
+    if not na(open_time)
+        glb_dealstart_bar_time := open_time
 
 // Long 加仓逻辑
 if long and stopLossConditions() and strategy.opentrades > 0 and strategy.opentrades < numberOfDCAOrders and in_date_range
@@ -201,8 +212,11 @@ if long and stopLossConditions() and strategy.opentrades > 0 and strategy.opentr
     executeTrade("add", "SO # " + str.tostring(strategy.opentrades), qty)
 
 // Long 平仓逻辑（todo:如果有仓位+止盈+有short信号，则平仓；或者如果有仓位，满足止损，则平仓，增加一种平仓可能，但表现很差，故先注释）
-if strategy.position_size > 0 and short and (minimumTakeProfit ? minimumProfitLogic() : true) and in_date_range
-    executeTrade("close", "")
+if strategy.position_size > 0 and short and (minimumTakeProfitEnabled ? minimumProfitLogic() : true) and in_date_range
+    close_time := executeTrade("close", "")
+    if not na(close_time)
+        plotPNLLabel()
+
 //else
 //    if strategy.position_size > 0 and stopLossConditions() and in_date_range
 //        executeTrade("close", "")
