@@ -207,7 +207,8 @@ if long and strategy.opentrades == 0 and in_date_range
         glb_dealstart_bar_time := open_time
 
 // Long 加仓逻辑
-if long and stopLossConditions() and strategy.opentrades > 0 and strategy.opentrades < numberOfDCAOrders and in_date_range
+//if long and stopLossConditions() and strategy.opentrades > 0 and strategy.opentrades < numberOfDCAOrders and in_date_range
+if long and strategy.opentrades > 0 and strategy.opentrades < numberOfDCAOrders and in_date_range
     qty = DCAType ? (strategy.position_size * dcaMultiplier) : calculateOrderSize(socounter) / close
     executeTrade("add", "SO # " + str.tostring(strategy.opentrades), qty)
 
