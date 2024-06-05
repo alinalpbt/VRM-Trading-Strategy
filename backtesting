@@ -212,11 +212,16 @@ if long and strategy.opentrades > 0 and strategy.opentrades < numberOfDCAOrders 
     qty = DCAType ? (strategy.position_size * dcaMultiplier) : calculateOrderSize(socounter) / close
     executeTrade("add", "SO # " + str.tostring(strategy.opentrades), qty)
 
-// Long 平仓逻辑（todo:如果有仓位+止盈+有short信号，则平仓；或者如果有仓位，满足止损，则平仓，增加一种平仓可能，但表现很差，故先注释）
+// Long 平仓逻辑
 if strategy.position_size > 0 and short and (minimumTakeProfitEnabled ? minimumProfitLogic() : true) and in_date_range
     close_time := executeTrade("close", "")
     if not na(close_time)
         plotPNLLabel()
+//if strategy.position_size > 0 and in_date_range
+//    if (short and (minimumTakeProfitEnabled ? minimumProfitLogic() : true)) or stopLossConditions()
+//        close_time := executeTrade("close", "")
+//        if not na(close_time)
+//            plotPNLLabel()
 
 //else
 //    if strategy.position_size > 0 and stopLossConditions() and in_date_range
