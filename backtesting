@@ -30,9 +30,10 @@ string visual_group = "视觉设置"
 float ChangePercentage = input.float(1.4, 'MFS系数（0-5）', group='strategy_group', tooltip="可以理解为价格波动，时间周期越短，数字越小")
 float below = input(40, "下轨阈值（0-150）", group='strategy_group', tooltip="数字越小，买入机会越小。这里参数大体是RSI+1/2MFI，建议值是30+10=40")
 float above = input(110, "上轨阈值（0-150）", group='strategy_group', tooltip="数字越大，卖出机会越小.这里参数大体是RSI+1/2MFI，建议值是70+40=110")
+float AddPercentage = input.float(2.0, "DCA 加仓百分比 (%)", group=dca_group, tooltip="价格下跌达到此比例时触发DCA加仓") / 100
 bool minimumTakeProfitEnabled = input.bool(true, "启用止盈%", group=strategy_group)
 float minimumTakeProfit = input.float(2.0, "止盈 (%)", group=strategy_group) / 100
-float priceChangeForSO = input.float(2.0, "止损 (%)", group=strategy_group) /100
+float maxLossPercent = input.float(2.0, "止损 (%)", group=strategy_group) /100
 
 // DCA参数
 float baseOrderAmount = input.float(1000, "基础订单金额 ($)", group=dca_group)
@@ -66,7 +67,7 @@ var float removed = na  // 全局变量，用于记录某些计算值
 var int socounter = 0  // 加仓计数器
 var int dealcount = 0  // 交易计数器
 var int glb_dealstart_bar_time = na  // 全局交易开始时间
-
+var float lastDCAPrice = 0.0  // 记录上次 DCA 加仓的价格
 
 
 //核心交易逻辑开始------------------------{
@@ -97,9 +98,9 @@ short = (high >= vwma_above) and (rsi_mfi > above)
 // 计算止损价格的函数，mintick的计算很有意思
 calcNextStopLossPrice() =>
     if strategy.position_size > 0
-        strategy.position_avg_price - (math.round(priceChangeForSO * strategy.position_avg_price / syminfo.mintick)) * syminfo.mintick
+        strategy.position_avg_price - (math.round(maxLossPercent * strategy.position_avg_price / syminfo.mintick)) * syminfo.mintick
     else if strategy.position_size < 0
-        strategy.position_avg_price + (math.round(priceChangeForSO * strategy.position_avg_price / syminfo.mintick)) * syminfo.mintick
+        strategy.position_avg_price + (math.round(maxLossPercent * strategy.position_avg_price / syminfo.mintick)) * syminfo.mintick
     else
         na
 
@@ -125,9 +126,9 @@ calcCapitalForStopOrders() =>
 calculateOrderSize(orderNumber) =>
     baseOrderAmount * math.pow(dcaMultiplier, orderNumber)
 
-// 定义止损条件
-stopLossConditions() =>
-    calcPriceChangeFromLastDeal() > priceChangeForSO and close < calcNextStopLossPrice()
+// 定义加仓条件
+WhenAddCondition() =>
+    calcPriceChangeFromLastDeal() > AddPercentage and close < calcNextStopLossPrice()
 
 // 执行最小止盈逻辑条件
 minimumProfitLogic() =>
@@ -205,40 +206,23 @@ if long and strategy.opentrades == 0 and in_date_range
     open_time := executeTrade("open", "D # " + str.tostring(strategy.closedtrades + 1), baseOrderAmount / close)
     if not na(open_time)
         glb_dealstart_bar_time := open_time
+        lastDCAPrice := strategy.position_avg_price  // 在开仓时初始化 lastDCAPrice
+        socounter := socounter + 1
 
-// Long 加仓逻辑
-//if long and stopLossConditions() and strategy.opentrades > 0 and strategy.opentrades < numberOfDCAOrders and in_date_range
+// 加仓逻辑
 if long and strategy.opentrades > 0 and strategy.opentrades < numberOfDCAOrders and in_date_range
-    qty = DCAType ? (strategy.position_size * dcaMultiplier) : calculateOrderSize(socounter) / close
-    executeTrade("add", "SO # " + str.tostring(strategy.opentrades), qty)
+    priceChange = calcPriceChangeFromLastDeal()
+    if WhenAddCondition()
+        qty = DCAType ? (strategy.position_size * dcaMultiplier) : calculateOrderSize(socounter) / close
+        executeTrade("add", "SO # " + str.tostring(strategy.opentrades), qty)
+        lastDCAPrice := close
+        socounter := socounter + 1
 
 // Long 平仓逻辑
 if strategy.position_size > 0 and short and (minimumTakeProfitEnabled ? minimumProfitLogic() : true) and in_date_range
     close_time := executeTrade("close", "")
     if not na(close_time)
         plotPNLLabel()
-//if strategy.position_size > 0 and in_date_range
-//    if (short and (minimumTakeProfitEnabled ? minimumProfitLogic() : true)) or stopLossConditions()
-//        close_time := executeTrade("close", "")
-//        if not na(close_time)
-//            plotPNLLabel()
-
-//else
-//    if strategy.position_size > 0 and stopLossConditions() and in_date_range
-//        executeTrade("close", "")
-
-// Short 开仓逻辑
-//if short and strategy.opentrades == 0 and in_date_range
-//    executeTrade("open", "D # " + str.tostring(strategy.closedtrades + 1), baseOrderAmount / close)
-
-// Short 加仓逻辑
-//if short and stopLossConditions() and strategy.opentrades > 0 and strategy.opentrades < numberOfDCAOrders and in_date_range
-//    qty = DCAType ? (strategy.position_size * dcaMultiplier) : calculateOrderSize(socounter) / close
-//    executeTrade("add", "SO # " + str.tostring(strategy.opentrades), qty)
-
-// Short 平仓逻辑
-//if strategy.position_size > 0 and long and (minimumTakeProfit ? minimumProfitLogic() : true) and in_date_range
-//    executeTrade("close", "")
 
 //-----------}
 
