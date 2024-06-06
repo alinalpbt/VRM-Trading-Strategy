@@ -32,7 +32,7 @@ float below = input(40, "下轨阈值（0-150）", group='strategy_group', toolt
 float above = input(110, "上轨阈值（0-150）", group='strategy_group', tooltip="数字越大，卖出机会越小.这里参数大体是RSI+1/2MFI，建议值是70+40=110")
 float AddPercentage = input.float(2.0, "DCA 加仓百分比 (%)", group=dca_group, tooltip="价格下跌达到此比例时触发DCA加仓") / 100
 bool minimumTakeProfitEnabled = input.bool(true, "启用止盈%", group=strategy_group)
-float minimumTakeProfit = input.float(2.0, "止盈 (%)", group=strategy_group) / 100
+float minProfitPercent = input.float(2.0, "止盈 (%)", group=strategy_group) / 100
 float maxLossPercent = input.float(2.0, "止损 (%)", group=strategy_group) /100
 
 // DCA参数
@@ -87,22 +87,26 @@ float mf = ta.mfi(hlc3, 7)
 float rsi_mfi = math.abs(rsi + mf / 2)
 
 // 生成交易信号
-long = (low <= vwma_below) and (rsi_mfi < below)  
-short = (high >= vwma_above) and (rsi_mfi > above)  
+long = (low <= vwma_below) and (rsi_mfi < below)
+short = (high >= vwma_above) and (rsi_mfi > above)
 //----------------}
 
 
 
 
 // 一些系列策略相关功能-----------------------{
-// 计算止损价格的函数，mintick的计算很有意思
-calcNextStopLossPrice() =>
+// 计算加仓偏移价格的函数（止损和加仓应该是两个函数，止损是总投入资金偏移量<=2%，加仓是加权平均价格偏移量<=2%，该处写法为加仓偏移量）
+calcDCAoffsetPrice() =>
     if strategy.position_size > 0
-        strategy.position_avg_price - (math.round(maxLossPercent * strategy.position_avg_price / syminfo.mintick)) * syminfo.mintick
+        math.round((strategy.position_avg_price - AddPercentage  / 100 * strategy.position_avg_price) / syminfo.mintick) * syminfo.mintick
     else if strategy.position_size < 0
-        strategy.position_avg_price + (math.round(maxLossPercent * strategy.position_avg_price / syminfo.mintick)) * syminfo.mintick
+        math.round((strategy.position_avg_price + AddPercentage  / 100 * strategy.position_avg_price) / syminfo.mintick) * syminfo.mintick
     else
         na
+
+// 计算止损价格函数
+calcMAXLossTriggerPrice() =>
+    strategy.opentrades * strategy.position_avg_price * (1 - maxLossPercent)
 
 // 计算自上次交易以来价格变化百分比
 calcPriceChangeFromLastDeal() =>
@@ -128,11 +132,11 @@ calculateOrderSize(orderNumber) =>
 
 // 定义加仓条件
 WhenAddCondition() =>
-    calcPriceChangeFromLastDeal() > AddPercentage and close < calcNextStopLossPrice()
+    calcPriceChangeFromLastDeal() > AddPercentage and close < calcMAXLossTriggerPrice()
 
 // 执行最小止盈逻辑条件
 minimumProfitLogic() =>
-    close > (strategy.position_avg_price * (1 + minimumTakeProfit))
+    close > (strategy.position_avg_price * (1 + minProfitPercent))
 
 // 将秒数转换为可读的时间格式
 convertSecondsToReadableFormat(seconds) =>
@@ -224,6 +228,9 @@ if strategy.position_size > 0 and short and (minimumTakeProfitEnabled ? minimumP
     if not na(close_time)
         plotPNLLabel()
 
+
+
+
 //-----------}
 
 
@@ -239,8 +246,8 @@ plotshape(series=short, title="卖出信号", style=shape.labeldown, location=lo
 
 // 图表绘制逻辑，绘制平均价格、止损价格和止盈价格
 avgPriceLine = plot(displayDealLines ? strategy.position_avg_price : na, "平均价格", color=averageColor, style=plot.style_linebr, editable=false)
-stopLossLine = plot(displayDealLines ? calcNextStopLossPrice() : na, "止损线", color=color.orange, style=plot.style_linebr, editable=false)
-takeProfitLine = plot(displayDealLines ? strategy.position_avg_price * (1 + minimumTakeProfit) : na, "止盈线", color=color.rgb(3, 233, 245), style=plot.style_linebr, editable=false)
+stopLossLine = plot(displayDealLines ? strategy.position_avg_price * (1 - maxLossPercent) : na, "止损线", color=color.orange, style=plot.style_linebr, editable=false)
+takeProfitLine = plot(displayDealLines ? strategy.position_avg_price * (1 + minProfitPercent) : na, "止盈线", color=color.rgb(3, 233, 245), style=plot.style_linebr, editable=false)
 
 // 填充颜色以示区域
 fill(takeProfitLine, avgPriceLine, color=profitColor)
