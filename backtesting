@@ -1,5 +1,5 @@
 //@version=5
-// 1 vwma上下轨 + rsi+1/2mfi
+// 根据vwma上下轨，结合rsi+1/2mfi参数的上下轨过滤，确定开平仓位置
 // 策略介绍
 strategy("VRM Strategy", 
    overlay=true, // 允许策略叠加在图表上
@@ -17,7 +17,7 @@ color gray = color.rgb(128, 223, 236, 61)
 color white = color.rgb(210, 210, 210)
 color red = color.rgb(128, 49, 49)
 color yellow = color.rgb(170, 140, 40)
-color blue = color.rgb(7, 77, 17, 30)
+color green = color.rgb(7, 77, 17, 30)
 
 
 // 参数分组
@@ -27,9 +27,9 @@ string date_group = "日期设置"
 string visual_group = "视觉设置"
 
 // 策略参数
-float ChangePercentage = input.float(1.4, 'MFS系数（0-5）', group='strategy_group', tooltip="可以理解为价格波动，时间周期越短，数字越小")
-float below = input(40, "下轨阈值（0-150）", group='strategy_group', tooltip="数字越小，买入机会越小。这里参数大体是RSI+1/2MFI，建议值是30+10=40")
-float above = input(110, "上轨阈值（0-150）", group='strategy_group', tooltip="数字越大，卖出机会越小.这里参数大体是RSI+1/2MFI，建议值是70+40=110")
+float ChangePercentage = input.float(1.4, 'MFS系数（0-5）', group=strategy_group, tooltip="可以理解为价格波动，时间周期越短，数字越小")
+float below = input(40, "下轨阈值（0-150）", group=strategy_group, tooltip="数字越小，买入机会越小。这里参数大体是RSI+1/2MFI，建议值是30+10=40")
+float above = input(110, "上轨阈值（0-150）", group=strategy_group, tooltip="数字越大，卖出机会越小.这里参数大体是RSI+1/2MFI，建议值是70+40=110")
 float AddPercentage = input.float(2.0, "DCA 加仓百分比 (%)", group=dca_group, tooltip="价格下跌达到此比例时触发DCA加仓") / 100
 bool minimumTakeProfitEnabled = input.bool(true, "启用止盈%", group=strategy_group)
 float minProfitPercent = input.float(2.0, "止盈 (%)", group=strategy_group) / 100
@@ -42,9 +42,9 @@ int numberOfDCAOrders = input.int(4, "DCA 订单数量", group=dca_group, toolti
 bool DCAType = input.string("Volume Multiply","DCA类型",options = ["Volume Multiply","Base Multiply"],group = dca_group) == "Volume Multiply"
 
 // 日期限制
-bool limitDateRange = input.bool(true, "限制回测日期", group="date_group")
-int startTime = input.time(timestamp('1 JAN 2020 00:00 +0000'), "开始时间", group="date_group")
-int endTime = input.time(timestamp('31 Dec 2077 00:00 +0000'), "结束时间", group="date_group")
+bool limitDateRange = input.bool(true, "限制回测日期", group=date_group)
+int startTime = input.time(timestamp('1 JAN 2020 00:00 +0000'), "开始时间", group=date_group)
+int endTime = input.time(timestamp('31 Dec 2077 00:00 +0000'), "结束时间", group=date_group)
 
 // 视觉效果
 // bool displayLabels = input(true, "显示标签", group=visual_group)
@@ -55,7 +55,7 @@ color profitColor = input.color(gray, "盈利颜色", group=visual_group)
 color soColor = input.color(red, "止损颜色", group=visual_group)
 color averageColor = input.color(white, "平均价格颜色", group=visual_group)
 bool displayBackground = input(false, "显示背景颜色", group=visual_group)
-color backgroundColor = input.color(blue, "背景颜色", group=visual_group)
+color backgroundColor = input.color(green, "背景颜色", group=visual_group)
 bool displayPnLLabel = input(true, "显示盈亏标签", group=visual_group)
 color pnlColor = input.color(yellow, "盈亏颜色", group=visual_group)
 
