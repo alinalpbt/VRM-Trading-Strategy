@@ -62,19 +62,21 @@ color pnlColor = input.color(yellow, "盈亏颜色", group=visual_group)
 // 初始化变量
 // int offset = 15
 // todo：这个参数可以修改
-int Length = 14 
+int Length = 14
 var float removed = na  // 全局变量，用于记录某些计算值
 var int socounter = 0  // 加仓计数器
 var int dealcount = 0  // 交易计数器
 var int glb_dealstart_bar_time = na  // 全局交易开始时间
 var float lastDCAPrice = 0.0  // 记录上次 DCA 加仓的价格
+var float totalCapitalUsed = 0.0  // 记录总共投入的资金
+
 
 
 //核心交易逻辑开始------------------------{
 // 计算成交量加权移动平均（Volume Weighted Moving Average），使用周期为Length
-float core = ta.vwma(hlc3, Length)  
-float vwma_above = core * (1 + (ChangePercentage / 100)) 
-float vwma_below = core * (1 - (ChangePercentage / 100)) 
+float core = ta.vwma(hlc3, Length)
+float vwma_above = core * (1 + (ChangePercentage / 100))
+float vwma_below = core * (1 - (ChangePercentage / 100))
 
 // 检验是否在回测时间里
 bool in_date_range = limitDateRange ? (time >= startTime and time <= endTime) : true
@@ -155,14 +157,10 @@ getTimeSpanAsString(start, end) =>
         secondsDifference = (end - start) / 1000
         convertSecondsToReadableFormat(secondsDifference)
 
-// 计算当前持仓的盈亏
-calcPositionProfit() =>
-    (close * strategy.position_size) - (strategy.position_avg_price * strategy.position_size)
-
 plotPNLLabel() =>
     // 初始化消息内容
-    message = ""    
-    message += "PNL: " + str.tostring(math.round(calcPositionProfit(), 2)) + ' ' + str.tostring(syminfo.currency) + '\n'
+    message = ""
+    message += "PNL: " + str.tostring(math.round(strategy.closedtrades.profit(strategy.closedtrades - 1), 2)) + ' ' + str.tostring(syminfo.currency) + '\n'
     message += "时间: " + getTimeSpanAsString(glb_dealstart_bar_time, time) + '\n'
     message += "PNL%: " + str.tostring(math.round(calcProfitPercent(), 2)) + " %"
     topy = high + (high * 0.04)
@@ -283,7 +281,7 @@ var summary_table = table.new(position = table_position(), columns = 2, rows = 4
 
 // 更新表格单元格信息
 table_cell(_table, _row, in1, in2) =>
-    table.cell(_table, 0, _row, in1, text_color = textColor, bgcolor = color.rgb(101, 101, 101, 80), text_size = size.small ) 
+    table.cell(_table, 0, _row, in1, text_color = textColor, bgcolor = color.rgb(101, 101, 101, 80), text_size = size.small )
     table.cell(_table, 1, _row, str.tostring(in2), text_color = textColor, bgcolor = color.rgb(101, 101, 101, 80), text_size = size.small )
 
 // 填充表格函数
