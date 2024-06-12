@@ -17,7 +17,7 @@ color gray = color.rgb(128, 223, 236, 61)
 color white = color.rgb(210, 210, 210)
 color red = color.rgb(128, 49, 49)
 color yellow = color.rgb(170, 140, 40)
-color green = color.rgb(7, 77, 17, 30)
+color green = color.rgb(26, 155, 45, 30)
 
 // 参数设置分组
 string strategy_group = "策略设置"
@@ -32,11 +32,11 @@ float above = input(110, "上轨阈值(0-150)", group=strategy_group, tooltip="�
 
 // SL&TP设置
 bool minimumTakeProfitEnabled = input.bool(true, "启用止盈%", group=sltp_group) 
-float minProfitPercent = input.float(2.0, "止盈 (%)", group=sltp_group) / 100
-float maxLossPercent = input.float(2.0, "止损 (%)", group=sltp_group) /100
+float takeProfitPercent = input.float(2.0, "止盈 (%)", group=sltp_group) / 100
+float stopLossPercent = input.float(2.0, "止损 (%)", group=sltp_group) /100
 
 // DCA设置
-float AddPercentage = input.float(2.0, "DCA 加仓百分比 (%)", group=dca_group, tooltip="价格下跌达到此比例时触发DCA加仓") / 100
+float addPercentage = input.float(2.0, "DCA 加仓百分比 (%)", group=dca_group, tooltip="价格下跌达到此比例时触发DCA加仓") / 100
 float baseOrderAmount = input.float(1000, "基础订单金额 ($)", group=dca_group)
 float dcaMultiplier = input.float(1.5, "DCA 倍数", group=dca_group, tooltip="对仓位大小进行倍增")
 int numberOfDCAOrders = input.int(4, "DCA 订单数量", group=dca_group, tooltip="How Many DCA orders Do you want ?") + 1
@@ -46,7 +46,6 @@ bool DCAType = input.string("Volume Multiply","DCA类型",options = ["Volume Mul
 bool displayDealLines = input(true, "是否显示交易线", group=visual_group)
 
 // 初始化设置
-int Length = 14
 var int socounter = 0  // 加仓计数器
 var int dealcount = 0  // 交易计数器
 var int glb_dealstart_bar_time = na  // 全局交易开始时间
@@ -55,9 +54,9 @@ var float totalCapitalUsed = 0.0  // 记录总共投入的资金
 
 
 
-//核心交易逻辑开始------------------------{
-// 计算成交量加权移动平均（Volume Weighted Moving Average），使用周期为Length
-float core = ta.vwma(hlc3, Length)
+//核心交易逻辑开始======={
+// 计算成交量加权移动平均（Volume Weighted Moving Average）
+float core = ta.vwma(hlc3, 14)
 float vwma_above = core * (1 + (ChangePercentage / 100))
 float vwma_below = core * (1 - (ChangePercentage / 100))
 
@@ -72,24 +71,26 @@ float rsi_mfi = math.abs(rsi + mfi / 2)
 // 生成交易信号
 long = (low <= vwma_below) and (rsi_mfi < below)
 short = (high >= vwma_above) and (rsi_mfi > above)
-//----------------}
+//=======}
 
 
-
-
-// 一些系列策略相关功能-----------------------{
+// 策略相关功能函数======={
 // 计算加仓偏移价格的函数（止损和加仓应该是两个函数，止损是总投入资金偏移量<=2%，加仓是加权平均价格偏移量<=2%，该处写法为加仓偏移量）
-calcDCAoffsetPrice() =>
+calcDCAOffsetPrice() =>
     if strategy.position_size > 0 
-        math.round((strategy.position_avg_price - AddPercentage  / 100 * strategy.position_avg_price) / syminfo.mintick) * syminfo.mintick
+        math.round((strategy.position_avg_price - addPercentage  / 100 * strategy.position_avg_price) / syminfo.mintick) * syminfo.mintick
     else if strategy.position_size < 0 
-        math.round((strategy.position_avg_price + AddPercentage  / 100 * strategy.position_avg_price) / syminfo.mintick) * syminfo.mintick
+        math.round((strategy.position_avg_price + addPercentage  / 100 * strategy.position_avg_price) / syminfo.mintick) * syminfo.mintick
     else
         na
 
-// 计算止损价格函数
-calcMAXLossTriggerPrice() =>
-    strategy.opentrades * strategy.position_avg_price * (1 - maxLossPercent)
+// 计算止损价格
+calcStopLossPrice() =>
+    strategy.opentrades * strategy.position_avg_price * (1 - stopLossPercent)
+
+// 执行止盈价格
+calcTakeProfitPrice() =>
+    close > (strategy.position_avg_price * (1 + takeProfitPercent))
 
 // 计算自上次交易以来价格变化百分比
 calcPriceChangeFromLastDeal() =>
@@ -111,11 +112,7 @@ calculateOrderSize(orderNumber) =>
 
 // 定义加仓条件
 WhenAddCondition() =>
-    calcPriceChangeFromLastDeal() > AddPercentage and close < calcMAXLossTriggerPrice()
-
-// 执行最小止盈逻辑条件
-minimumProfitLogic() =>
-    close > (strategy.position_avg_price * (1 + minProfitPercent))
+    calcPriceChangeFromLastDeal() > addPercentage and close < calcStopLossPrice()
 
 
 
@@ -124,9 +121,7 @@ plotPNLLabel() =>
     message = ""
     message += "PNL: " + str.tostring(math.round(strategy.closedtrades.profit(strategy.closedtrades - 1), 2)) + ' ' + str.tostring(syminfo.currency) + '\n'
     message += "PNL%: " + str.tostring(math.round(strategy.closedtrades.profit_percent(strategy.closedtrades - 1), 2)) + " %"
-    topy = high + (high * 0.04)
-    // 创建新标签
-    label.new(bar_index + 1, y=topy, text=message, yloc=yloc.price, style=label.style_label_lower_left, textcolor=white, textalign=text.align_left, color=yellow)
+    label.new(bar_index + 1, y= high * 1.04, text=message, yloc=yloc.price, style=label.style_label_lower_left, textcolor=white, textalign=text.align_left, color=yellow)
 
 // 查看是否已开仓
 isOpenTrade() =>
@@ -135,12 +130,11 @@ isOpenTrade() =>
 // 计算当前持仓的盈亏百分比
 calcCurrentPNLPercentage() =>
     (close - strategy.position_avg_price) / close * 100
-
-//----------------}
-
+//=======}
 
 
-// 开仓加仓平仓逻辑-----------------------{
+
+// 开仓加仓平仓逻辑======={
 // 执行交易的函数，增加默认qty参数值
 executeTrade(type, comment, qty = 0) =>
     var int trade_time = na
@@ -180,46 +174,32 @@ if long and strategy.opentrades > 0 and strategy.opentrades < numberOfDCAOrders
         socounter := socounter + 1
 
 // Long 平仓逻辑
-if strategy.position_size > 0 and short and (minimumTakeProfitEnabled ? minimumProfitLogic() : true) 
+if strategy.position_size > 0 and short and (minimumTakeProfitEnabled ? calcTakeProfitPrice() : true) 
     close_time := executeTrade("close", "")
     if not na(close_time)
         plotPNLLabel()
+//=======}
 
 
-
-
-//-----------}
-
-
-// 绘制交易信号和阈值线-----------------------{
+// 绘制交易信号和阈值线======={
 // VMMA上轨和下轨显示
-hp = plot(vwma_above, "VWMA 上轨", color=color.new(color.red, 0))
-lp = plot(vwma_below, "VWMA 下轨", color=color.new(color.green, 0))
-mp = plot(core, color = white)
+hp = plot(vwma_above, "VWMA 上轨", color=red, editable=false)
+lp = plot(vwma_below, "VWMA 下轨", color=green, editable=false)
+ap = plot(core,"VWMA 价", color = white, editable=false)
 
-// 买入和卖出信号形状
-plotshape(series=long, title="买入信号", style=shape.labelup, location=location.belowbar, color=color.new(color.green, 0), size=size.tiny, text="买")
-plotshape(series=short, title="卖出信号", style=shape.labeldown, location=location.abovebar, color=color.new(color.red, 0), size=size.tiny, text="卖")
-
-// 图表绘制逻辑，绘制平均价格、止损价格和止盈价格
-avgPriceLine = plot(displayDealLines ? strategy.position_avg_price : na, "平均价格", color=white, style=plot.style_linebr, editable=false)
-stopLossLine = plot(displayDealLines ? strategy.position_avg_price * (1 - maxLossPercent) : na, "止损线", color=color.orange, style=plot.style_linebr, editable=false)
-takeProfitLine = plot(displayDealLines ? strategy.position_avg_price * (1 + minProfitPercent) : na, "止盈线", color=color.rgb(3, 233, 245), style=plot.style_linebr, editable=false)
-
-// 填充颜色以示区域
-fill(takeProfitLine, avgPriceLine, color=green)
-fill(avgPriceLine, stopLossLine, color=red)
-
-// 开仓状态和盈亏信息
-statusOpen() =>
-    if isOpenTrade()
-        "开仓状态\n------\n" + syminfo.currency + " : $" + str.tostring(math.round(strategy.openprofit, 2)) + "\n------\n% : " + str.tostring(math.round(calcCurrentPNLPercentage(), 2)) + " %"
-    else
-        "未开仓"
-//-----------}
+// 买入和平仓信号
+plotshape(series=long, title="买入信号", style=shape.labelup, location=location.belowbar, color=green, size=size.tiny, text="buy", textcolor=white, editable=false)
+plotshape(series=short, title="平仓信号", style=shape.labeldown, location=location.abovebar, color=red, size=size.tiny, text="close", textcolor=white, editable=false)
 
 
-//右上角显示交易状态-----------------------{
+// 绘制平均、止损和止盈价格
+avgPriceLine = plot(displayDealLines ? strategy.position_avg_price : na, "持仓成本", color=white, editable=false)
+stopLossLine = plot(displayDealLines ? strategy.position_avg_price * (1 - stopLossPercent) : na, "止损线", color=yellow, editable=false)
+takeProfitLine = plot(displayDealLines ? strategy.position_avg_price * (1 + takeProfitPercent) : na, "止盈线", color=yellow, editable=false)
+//=======}
+
+
+//右上角显示交易状态======={
 // 定义表格位置
 table_position() => position.top_right
 
@@ -230,6 +210,13 @@ var summary_table = table.new(position = table_position(), columns = 2, rows = 4
 table_cell(_table, _row, in1, in2) =>
     table.cell(_table, 0, _row, in1, text_color = white, bgcolor = color.rgb(101, 101, 101, 80), text_size = size.small )
     table.cell(_table, 1, _row, str.tostring(in2), text_color = white, bgcolor = color.rgb(101, 101, 101, 80), text_size = size.small )
+
+// 开仓状态和盈亏信息
+statusOpen() =>
+    if isOpenTrade()
+        "开仓状态\n------\n" + syminfo.currency + " : $" + str.tostring(math.round(strategy.openprofit, 2)) + "\n------\n% : " + str.tostring(math.round(calcCurrentPNLPercentage(), 2)) + " %"
+    else
+        "未开仓"
 
 // 填充表格函数
 fillTable(summary_table) =>
@@ -253,4 +240,4 @@ fillTable(summary_table) =>
 if barstate.isconfirmed
     table.clear(summary_table, 0, 0, 1, 3)
     fillTable(summary_table)
-//-------}
+//=======}
