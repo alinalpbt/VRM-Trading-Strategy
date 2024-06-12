@@ -54,7 +54,7 @@ var float totalCapitalUsed = 0.0  // 记录总共投入的资金
 
 
 
-//核心交易逻辑开始======={
+//核心交易开仓逻辑======={
 // 计算成交量加权移动平均（Volume Weighted Moving Average）
 float core = ta.vwma(hlc3, 14)
 float vwma_above = core * (1 + (ChangePercentage / 100))
@@ -84,11 +84,9 @@ calcDCAOffsetPrice() =>
     else
         na
 
-// 计算止损价格
+// 计算sl&tp价格
 calcStopLossPrice() =>
     strategy.opentrades * strategy.position_avg_price * (1 - stopLossPercent)
-
-// 执行止盈价格
 calcTakeProfitPrice() =>
     close > (strategy.position_avg_price * (1 + takeProfitPercent))
 
@@ -114,27 +112,18 @@ calculateOrderSize(orderNumber) =>
 WhenAddCondition() =>
     calcPriceChangeFromLastDeal() > addPercentage and close < calcStopLossPrice()
 
-
-
+// 盈亏标签显示
 plotPNLLabel() =>
-    // 初始化消息内容
     message = ""
     message += "PNL: " + str.tostring(math.round(strategy.closedtrades.profit(strategy.closedtrades - 1), 2)) + ' ' + str.tostring(syminfo.currency) + '\n'
     message += "PNL%: " + str.tostring(math.round(strategy.closedtrades.profit_percent(strategy.closedtrades - 1), 2)) + " %"
-    label.new(bar_index + 1, y= high * 1.04, text=message, yloc=yloc.price, style=label.style_label_lower_left, textcolor=white, textalign=text.align_left, color=yellow)
+    label.new(bar_index + 1, y= high * 1.01, text=message, yloc=yloc.price, style=label.style_label_lower_left, textcolor=white, textalign=text.align_left, color=yellow)
 
-// 查看是否已开仓
-isOpenTrade() =>
-    strategy.opentrades > 0 ? 1 : 0
-
-// 计算当前持仓的盈亏百分比
-calcCurrentPNLPercentage() =>
-    (close - strategy.position_avg_price) / close * 100
 //=======}
 
 
 
-// 开仓加仓平仓逻辑======={
+// 加仓平仓逻辑======={
 // 执行交易的函数，增加默认qty参数值
 executeTrade(type, comment, qty = 0) =>
     var int trade_time = na
@@ -164,7 +153,7 @@ if long and strategy.opentrades == 0
         lastDCAPrice := strategy.position_avg_price  // 在开仓时初始化 lastDCAPrice
         socounter := socounter + 1
 
-// 加仓逻辑
+// Long 加仓逻辑
 if long and strategy.opentrades > 0 and strategy.opentrades < numberOfDCAOrders 
     priceChange = calcPriceChangeFromLastDeal()
     if WhenAddCondition()
@@ -183,9 +172,9 @@ if strategy.position_size > 0 and short and (minimumTakeProfitEnabled ? calcTake
 
 // 绘制交易信号和阈值线======={
 // VMMA上轨和下轨显示
-hp = plot(vwma_above, "VWMA 上轨", color=red, editable=false)
-lp = plot(vwma_below, "VWMA 下轨", color=green, editable=false)
-ap = plot(core,"VWMA 价", color = white, editable=false)
+hp = plot(vwma_above, "VWMA上轨", color=red, editable=false)
+lp = plot(vwma_below, "VWMA下轨", color=green, editable=false)
+ap = plot(core,"VWMA价", color = white, editable=false)
 
 // 买入和平仓信号
 plotshape(series=long, title="买入信号", style=shape.labelup, location=location.belowbar, color=green, size=size.tiny, text="buy", textcolor=white, editable=false)
@@ -199,9 +188,17 @@ takeProfitLine = plot(displayDealLines ? strategy.position_avg_price * (1 + take
 //=======}
 
 
-//右上角显示交易状态======={
+//右上角交易状态======={
 // 定义表格位置
 table_position() => position.top_right
+
+// 查看是否已开仓
+isOpenTrade() =>
+    strategy.opentrades > 0 ? 1 : 0
+
+// 计算当前持仓的盈亏百分比
+calcCurrentPNLPercentage() =>
+    (close - strategy.position_avg_price) / close * 100
 
 // 创建信息展示表格
 var summary_table = table.new(position = table_position(), columns = 2, rows = 4, frame_color = color.rgb(101, 101, 101, 80), frame_width = 2, border_width = 2)
