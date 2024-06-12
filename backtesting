@@ -115,10 +115,6 @@ calcPriceChangeFromLastDeal() =>
     lastDealPrice = strategy.opentrades.entry_price(strategy.opentrades - 1)
     math.abs((close - lastDealPrice) / close * 100)
 
-// 计算当前持仓的盈利百分比
-calcProfitPercent() =>
-    math.abs((close - strategy.position_avg_price) / close * 100)
-
 // 计算止损订单资金总额
 calcCapitalForStopOrders() =>
     float totalCapital = 0.0
@@ -162,7 +158,7 @@ plotPNLLabel() =>
     message = ""
     message += "PNL: " + str.tostring(math.round(strategy.closedtrades.profit(strategy.closedtrades - 1), 2)) + ' ' + str.tostring(syminfo.currency) + '\n'
     message += "时间: " + getTimeSpanAsString(glb_dealstart_bar_time, time) + '\n'
-    message += "PNL%: " + str.tostring(math.round(calcProfitPercent(), 2)) + " %"
+    message += "PNL%: " + str.tostring(math.round(strategy.closedtrades.profit_percent(strategy.closedtrades - 1), 2)) + " %"
     topy = high + (high * 0.04)
     // 创建新标签
     label.new(bar_index + 1, y=topy, text=message, yloc=yloc.price, style=label.style_label_lower_left, textcolor=white, textalign=text.align_left, color=pnlColor)
