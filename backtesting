@@ -27,7 +27,7 @@ string date_group = "日期设置"
 string visual_group = "视觉设置"
 
 // 策略参数
-float ChangePercentage = input.float(1.4, 'MFS系数（0-5）', group=strategy_group, tooltip="可以理解为价格波动，时间周期越短，数字越小")
+float ChangePercentage = input.float(1.4, 'VRM系数（0-5）', group=strategy_group, tooltip="可以理解为价格波动，时间周期越短，数字越小")
 float below = input(40, "下轨阈值（0-150）", group=strategy_group, tooltip="数字越小，买入机会越小。这里参数大体是RSI+1/2MFI，建议值是30+10=40")
 float above = input(110, "上轨阈值（0-150）", group=strategy_group, tooltip="数字越大，卖出机会越小.这里参数大体是RSI+1/2MFI，建议值是70+40=110")
 float AddPercentage = input.float(2.0, "DCA 加仓百分比 (%)", group=dca_group, tooltip="价格下跌达到此比例时触发DCA加仓") / 100
@@ -43,8 +43,8 @@ bool DCAType = input.string("Volume Multiply","DCA类型",options = ["Volume Mul
 
 // 日期限制
 bool limitDateRange = input.bool(true, "限制回测日期", group=date_group)
-int startTime = input.time(timestamp('1 JAN 2020 00:00 +0000'), "开始时间", group=date_group)
-int endTime = input.time(timestamp('31 Dec 2077 00:00 +0000'), "结束时间", group=date_group)
+int startTime = input.time(timestamp('1 JAN 2021 00:00 +0000'), "开始时间", group=date_group)
+int endTime = input.time(timestamp('31 Dec 2023 00:00 +0000'), "结束时间", group=date_group)
 
 // 视觉效果
 // bool displayLabels = input(true, "显示标签", group=visual_group)
@@ -99,9 +99,9 @@ short = (high >= vwma_above) and (rsi_mfi > above)
 // 一些系列策略相关功能-----------------------{
 // 计算加仓偏移价格的函数（止损和加仓应该是两个函数，止损是总投入资金偏移量<=2%，加仓是加权平均价格偏移量<=2%，该处写法为加仓偏移量）
 calcDCAoffsetPrice() =>
-    if strategy.position_size > 0
+    if strategy.position_size > 0 and in_date_range
         math.round((strategy.position_avg_price - AddPercentage  / 100 * strategy.position_avg_price) / syminfo.mintick) * syminfo.mintick
-    else if strategy.position_size < 0
+    else if strategy.position_size < 0 and in_date_range
         math.round((strategy.position_avg_price + AddPercentage  / 100 * strategy.position_avg_price) / syminfo.mintick) * syminfo.mintick
     else
         na
