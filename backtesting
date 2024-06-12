@@ -117,28 +117,12 @@ WhenAddCondition() =>
 minimumProfitLogic() =>
     close > (strategy.position_avg_price * (1 + minProfitPercent))
 
-// 将秒数转换为可读的时间格式
-convertSecondsToReadableFormat(seconds) =>
-    if seconds >= 86400
-        str.tostring(math.round(seconds / 86400, 1)) + ' days'
-    else if seconds >= 3600
-        str.tostring(math.round(seconds / 3600, 1)) + ' hours'
-    else
-        str.tostring(math.round(seconds / 60, 1)) + ' mins'
 
-// 计算两个时间点之间的时间跨度，并转换为可读格式
-getTimeSpanAsString(start, end) =>
-    if na(start) or na(end)
-        "Time Error"
-    else
-        secondsDifference = (end - start) / 1000
-        convertSecondsToReadableFormat(secondsDifference)
 
 plotPNLLabel() =>
     // 初始化消息内容
     message = ""
     message += "PNL: " + str.tostring(math.round(strategy.closedtrades.profit(strategy.closedtrades - 1), 2)) + ' ' + str.tostring(syminfo.currency) + '\n'
-    message += "时间: " + getTimeSpanAsString(glb_dealstart_bar_time, time) + '\n'
     message += "PNL%: " + str.tostring(math.round(strategy.closedtrades.profit_percent(strategy.closedtrades - 1), 2)) + " %"
     topy = high + (high * 0.04)
     // 创建新标签
@@ -153,8 +137,6 @@ calcCurrentPNLPercentage() =>
     (close - strategy.position_avg_price) / close * 100
 
 //----------------}
-
-
 
 
 
