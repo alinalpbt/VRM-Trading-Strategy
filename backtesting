@@ -54,7 +54,7 @@ var float totalCapitalUsed = 0.0  // 记录总共投入的资金
 
 
 
-//核心交易开仓逻辑======={
+//1核心交易开仓逻辑======={
 // 计算成交量加权移动平均（Volume Weighted Moving Average）
 float core = ta.vwma(hlc3, 14)
 float vwma_above = core * (1 + (ChangePercentage / 100))
@@ -84,12 +84,6 @@ calcDCAOffsetPrice() =>
     else
         na
 
-// 计算sl&tp价格
-calcStopLossPrice() =>
-    strategy.opentrades * strategy.position_avg_price * (1 - stopLossPercent)
-calcTakeProfitPrice() =>
-    close > (strategy.position_avg_price * (1 + takeProfitPercent))
-
 // 计算自上次交易以来价格变化百分比
 calcPriceChangeFromLastDeal() =>
     lastDealPrice = strategy.opentrades.entry_price(strategy.opentrades - 1)
@@ -112,18 +106,11 @@ calculateOrderSize(orderNumber) =>
 WhenAddCondition() =>
     calcPriceChangeFromLastDeal() > addPercentage and close < calcStopLossPrice()
 
-// 盈亏标签显示
-plotPNLLabel() =>
-    message = ""
-    message += "PNL: " + str.tostring(math.round(strategy.closedtrades.profit(strategy.closedtrades - 1), 2)) + ' ' + str.tostring(syminfo.currency) + '\n'
-    message += "PNL%: " + str.tostring(math.round(strategy.closedtrades.profit_percent(strategy.closedtrades - 1), 2)) + " %"
-    label.new(bar_index + 1, y= high * 1.01, text=message, yloc=yloc.price, style=label.style_label_lower_left, textcolor=white, textalign=text.align_left, color=yellow)
-
 //=======}
 
 
 
-// 加仓平仓逻辑======={
+// 2加仓平仓逻辑======={
 // 执行交易的函数，增加默认qty参数值
 executeTrade(type, comment, qty = 0) =>
     var int trade_time = na
@@ -170,7 +157,17 @@ if strategy.position_size > 0 and short and (minimumTakeProfitEnabled ? calcTake
 //=======}
 
 
-// 绘制交易信号和阈值线======={
+// 3止盈止损逻辑======={
+// 计算sl&tp价格
+calcStopLossPrice() =>
+    strategy.opentrades * strategy.position_avg_price * (1 - stopLossPercent)
+calcTakeProfitPrice() =>
+    close > (strategy.position_avg_price * (1 + takeProfitPercent))
+//=======}
+
+
+
+// 绘制交易信号，阈值线和盈亏标签======={
 // VMMA上轨和下轨显示
 hp = plot(vwma_above, "VWMA上轨", color=red, editable=false)
 lp = plot(vwma_below, "VWMA下轨", color=green, editable=false)
@@ -185,6 +182,13 @@ plotshape(series=short, title="平仓信号", style=shape.labeldown, location=lo
 avgPriceLine = plot(displayDealLines ? strategy.position_avg_price : na, "持仓成本", color=white, editable=false)
 stopLossLine = plot(displayDealLines ? strategy.position_avg_price * (1 - stopLossPercent) : na, "止损线", color=yellow, editable=false)
 takeProfitLine = plot(displayDealLines ? strategy.position_avg_price * (1 + takeProfitPercent) : na, "止盈线", color=yellow, editable=false)
+
+// 盈亏标签显示
+plotPNLLabel() =>
+    message = ""
+    message += "PNL: " + str.tostring(math.round(strategy.closedtrades.profit(strategy.closedtrades - 1), 2)) + ' ' + str.tostring(syminfo.currency) + '\n'
+    message += "PNL%: " + str.tostring(math.round(strategy.closedtrades.profit_percent(strategy.closedtrades - 1), 2)) + " %"
+    label.new(bar_index + 1, y= high * 1.01, text=message, yloc=yloc.price, style=label.style_label_lower_left, textcolor=white, textalign=text.align_left, color=yellow)
 //=======}
 
 
