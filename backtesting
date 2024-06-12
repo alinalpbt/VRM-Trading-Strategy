@@ -23,7 +23,6 @@ color green = color.rgb(7, 77, 17, 30)
 // 参数分组
 string strategy_group = "策略设置"
 string dca_group = "DCA设置"
-string date_group = "日期设置"
 string visual_group = "视觉设置"
 
 // 策略参数
@@ -41,10 +40,6 @@ float dcaMultiplier = input.float(1.5, "DCA 倍数", group=dca_group, tooltip="�
 int numberOfDCAOrders = input.int(4, "DCA 订单数量", group=dca_group, tooltip="How Many DCA orders Do you want ?") + 1
 bool DCAType = input.string("Volume Multiply","DCA类型",options = ["Volume Multiply","Base Multiply"],group = dca_group) == "Volume Multiply"
 
-// 日期限制
-bool limitDateRange = input.bool(true, "限制回测日期", group=date_group)
-int startTime = input.time(timestamp('1 JAN 2021 00:00 +0000'), "开始时间", group=date_group)
-int endTime = input.time(timestamp('31 Dec 2023 00:00 +0000'), "结束时间", group=date_group)
 
 // 视觉效果
 // bool displayLabels = input(true, "显示标签", group=visual_group)
@@ -78,8 +73,6 @@ float core = ta.vwma(hlc3, Length)
 float vwma_above = core * (1 + (ChangePercentage / 100))
 float vwma_below = core * (1 - (ChangePercentage / 100))
 
-// 检验是否在回测时间里
-bool in_date_range = limitDateRange ? (time >= startTime and time <= endTime) : true
 
 // 利用RSI和MFI指标计算rsi_mfi交易信号
 float up = ta.rma(math.max(ta.change(close), 0), 7) //rma = ema
@@ -99,9 +92,9 @@ short = (high >= vwma_above) and (rsi_mfi > above)
 // 一些系列策略相关功能-----------------------{
 // 计算加仓偏移价格的函数（止损和加仓应该是两个函数，止损是总投入资金偏移量<=2%，加仓是加权平均价格偏移量<=2%，该处写法为加仓偏移量）
 calcDCAoffsetPrice() =>
-    if strategy.position_size > 0 and in_date_range
+    if strategy.position_size > 0 
         math.round((strategy.position_avg_price - AddPercentage  / 100 * strategy.position_avg_price) / syminfo.mintick) * syminfo.mintick
-    else if strategy.position_size < 0 and in_date_range
+    else if strategy.position_size < 0 
         math.round((strategy.position_avg_price + AddPercentage  / 100 * strategy.position_avg_price) / syminfo.mintick) * syminfo.mintick
     else
         na
@@ -200,7 +193,7 @@ var int open_time = na
 var int close_time = na
 
 // Long 开仓逻辑
-if long and strategy.opentrades == 0 and in_date_range
+if long and strategy.opentrades == 0 
     open_time := executeTrade("open", "D # " + str.tostring(strategy.closedtrades + 1), baseOrderAmount / close)
     if not na(open_time)
         glb_dealstart_bar_time := open_time
@@ -208,7 +201,7 @@ if long and strategy.opentrades == 0 and in_date_range
         socounter := socounter + 1
 
 // 加仓逻辑
-if long and strategy.opentrades > 0 and strategy.opentrades < numberOfDCAOrders and in_date_range
+if long and strategy.opentrades > 0 and strategy.opentrades < numberOfDCAOrders 
     priceChange = calcPriceChangeFromLastDeal()
     if WhenAddCondition()
         qty = DCAType ? (strategy.position_size * dcaMultiplier) : calculateOrderSize(socounter) / close
@@ -217,7 +210,7 @@ if long and strategy.opentrades > 0 and strategy.opentrades < numberOfDCAOrders 
         socounter := socounter + 1
 
 // Long 平仓逻辑
-if strategy.position_size > 0 and short and (minimumTakeProfitEnabled ? minimumProfitLogic() : true) and in_date_range
+if strategy.position_size > 0 and short and (minimumTakeProfitEnabled ? minimumProfitLogic() : true) 
     close_time := executeTrade("close", "")
     if not na(close_time)
         plotPNLLabel()
