@@ -9,7 +9,7 @@ strategy("VRM Strategy",
    initial_capital = 10000,  // 设置初始资本
    commission_type = strategy.commission.percent,  // 设置佣金类型为百分比
    commission_value = 0.1,  // 设置交易佣金的百分比值
-   default_qty_value = 100  // 设置默认交易量的大小@momo
+   default_qty_value = 1000  // 设置默认交易金额
    )
 
 // 自定义颜色
@@ -107,44 +107,6 @@ calcStopLossPrice() =>
 calcTakeProfitPrice() =>
     close > (strategy.position_avg_price * (1 + takeProfitPercent))
 
-// 定义加仓条件
-WhenAddCondition() =>
-    calcPriceChangeFromLastDeal() > addPercentage and close < calcStopLossPrice()
-
-//=======}
-
-
-
-// 2加仓平仓逻辑======={
-
-
-
-
-// 执行交易的函数，增加默认qty参数值
-executeTrade(type, comment, qty = 0) =>
-    if type == "open" or type == "add"
-        if qty != 0
-            strategy.entry("LONG", strategy.long, comment=comment, qty=qty)
-            alert(type == "open" ? "新做多交易 {{ticker}}" : "新DCA交易 {{ticker}}", freq=alert.freq_once_per_bar_close)
-    if type == "close"
-        strategy.close("LONG", comment=" ")
-        alert("交易平仓 {{ticker}}", freq=alert.freq_once_per_bar_close)
-
-// Long 开仓逻辑
-if long and strategy.opentrades == 0 
-    executeTrade("open", "D # " + str.tostring(strategy.closedtrades + 1), baseOrderAmount / close)
-    lastDCAPrice := strategy.position_avg_price  // 在开仓时初始化 lastDCAPrice
-    socounter := socounter + 1
-
-// Long 加仓逻辑
-if long and strategy.opentrades > 0 and strategy.opentrades < numberOfDCAOrders 
-    priceChange = calcPriceChangeFromLastDeal()
-    if WhenAddCondition()
-        qty = DCAType ? (strategy.position_size * dcaMultiplier) : calculateOrderSize(socounter) / close
-        executeTrade("add", "SO # " + str.tostring(strategy.opentrades), qty)
-        lastDCAPrice := close
-        socounter := socounter + 1
-
 // 盈亏标签显示
 plotPNLLabel() =>
     message = ""
@@ -152,9 +114,32 @@ plotPNLLabel() =>
     message += "PNL%: " + str.tostring(math.round(strategy.closedtrades.profit_percent(strategy.closedtrades - 1), 2)) + " %"
     label.new(bar_index + 1, y= high * 1.01, text=message, yloc=yloc.price, style=label.style_label_lower_left, textcolor=white, textalign=text.align_left, color=yellow)
     
-// Long 平仓逻辑
-if strategy.position_size > 0 and short and (minimumTakeProfitEnabled ? calcTakeProfitPrice() : true) 
-    executeTrade("close", "")
+//=======}
+
+
+
+// 2加仓平仓逻辑======={
+// Long 开仓
+if long and strategy.opentrades == 0 
+    strategy.entry(id="LONG", direction=strategy.long, comment = "LongOpen # " + str.tostring(dealcount), qty = baseOrderAmount)
+    lastDCAPrice := baseOrderAmount
+    dealcount := dealcount + 1
+    alert("新做多交易 {{ticker}}", freq=alert.freq_once_per_bar_close)
+
+// Long 加仓
+if (long and 
+     strategy.opentrades > 0 and 
+     strategy.opentrades < numberOfDCAOrders and 
+     close <= strategy.opentrades.entry_price(strategy.opentrades - 1))
+    lastDCAPrice := lastDCAPrice * dcaMultiplier
+    strategy.entry(id="LONG", direction=strategy.long, comment = "LongAdd # " + str.tostring(dealcount), qty = lastDCAPrice)
+    socounter := socounter + 1
+    alert("新DCA加仓 {{ticker}}", freq=alert.freq_once_per_bar_close)
+
+// Long 平仓
+if strategy.position_size > 0 and short
+    strategy.close("LONG", comment="LongClose")
+    alert("交易平仓 {{ticker}}", freq=alert.freq_once_per_bar_close)
     plotPNLLabel()
 //=======}
 
