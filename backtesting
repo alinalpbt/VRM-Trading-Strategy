@@ -1,15 +1,15 @@
 //@version=5
 // 根据vwma上下轨，结合rsi+1/2mfi参数的上下轨过滤，确定开平仓位置
 
-// 策略默认设置
+// 策略默认设置======={
 strategy("VRM Strategy", 
    overlay=true, // 允许策略叠加在图表上
-   pyramiding = 4,  //最多加仓次数
+   pyramiding = 4,  //最多加仓次数@momo
    default_qty_type = strategy.cash,  // 设置默认的交易量类型为现金
    initial_capital = 10000,  // 设置初始资本
    commission_type = strategy.commission.percent,  // 设置佣金类型为百分比
    commission_value = 0.1,  // 设置交易佣金的百分比值
-   default_qty_value = 100  // 设置默认交易量的大小
+   default_qty_value = 100  // 设置默认交易量的大小@momo
    )
 
 // 自定义颜色
@@ -30,17 +30,17 @@ float ChangePercentage = input.float(1.4, 'VRM系数(0-5)', group=strategy_group
 float below = input(40, "下轨阈值(0-150)", group=strategy_group, tooltip="数字越小,买入机会越小。这里参数大体是RSI+1/2MFI,建议值是30+10=40")
 float above = input(110, "上轨阈值(0-150)", group=strategy_group, tooltip="数字越大，卖出机会越小.这里参数大体是RSI+1/2MFI,建议值是70+40=110")
 
-// SL&TP设置
-bool minimumTakeProfitEnabled = input.bool(true, "启用止盈%", group=sltp_group) 
-float takeProfitPercent = input.float(2.0, "止盈 (%)", group=sltp_group) / 100
-float stopLossPercent = input.float(2.0, "止损 (%)", group=sltp_group) /100
-
 // DCA设置
 float addPercentage = input.float(2.0, "DCA 加仓百分比 (%)", group=dca_group, tooltip="价格下跌达到此比例时触发DCA加仓") / 100
 float baseOrderAmount = input.float(1000, "基础订单金额 ($)", group=dca_group)
 float dcaMultiplier = input.float(1.5, "DCA 倍数", group=dca_group, tooltip="对仓位大小进行倍增")
 int numberOfDCAOrders = input.int(4, "DCA 订单数量", group=dca_group, tooltip="How Many DCA orders Do you want ?") + 1
 bool DCAType = input.string("Volume Multiply","DCA类型",options = ["Volume Multiply","Base Multiply"],group = dca_group) == "Volume Multiply"
+
+// SL&TP设置
+bool minimumTakeProfitEnabled = input.bool(true, "启用止盈%", group=sltp_group) 
+float takeProfitPercent = input.float(2.0, "止盈 (%)", group=sltp_group) / 100
+float stopLossPercent = input.float(2.0, "止损 (%)", group=sltp_group) /100
 
 // 视觉设置
 bool displayDealLines = input(true, "是否显示交易线", group=visual_group)
@@ -51,7 +51,7 @@ var int dealcount = 0  // 交易计数器
 var int glb_dealstart_bar_time = na  // 全局交易开始时间
 var float lastDCAPrice = 0.0  // 记录上次 DCA 加仓的价格
 var float totalCapitalUsed = 0.0  // 记录总共投入的资金
-
+//=======}
 
 
 //1核心交易开仓逻辑======={
