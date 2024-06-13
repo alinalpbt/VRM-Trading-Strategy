@@ -52,16 +52,14 @@ var float lastDCAPrice = 0.0  // 记录上次 DCA 加仓的价格
 var float totalCapitalUsed = 0.0  // 记录总共投入的资金
 //=======}
 
+// 1 交易信号 ======={
 
-// 1 核心交易开仓逻辑======={
-
-// 计算成交量加权移动平均（Volume Weighted Moving Average）
+// 成交量加权移动平均（Volume Weighted Moving Average）
 float core = ta.vwma(hlc3, 14)
 float vwma_above = core * (1 + (ChangePercentage / 100))
 float vwma_below = core * (1 - (ChangePercentage / 100))
 
-
-// 利用RSI和MFI指标计算rsi_mfi交易信号
+// 计算rsi_mfi交易信号
 float up = ta.rma(math.max(ta.change(close), 0), 7) //rma = ema
 float down = ta.rma(-math.min(ta.change(close), 0), 7)
 float rsi = down == 0 ? 100 : up == 0 ? 0 : 100 - (100 / (1 + up / down))
@@ -72,24 +70,16 @@ float rsi_mfi = math.abs(rsi + mfi / 2)
 bool long = (low <= vwma_below) and (rsi_mfi < below)
 bool short = (high >= vwma_above) and (rsi_mfi > above)
 
-// ---画图--- rsi mfi有问题
-plot(rsi, color=color.orange, linewidth = 5, title="RSI")
-plot(mfi, color=color.purple, linewidth = 5, title="MFI")
-plot(rsi_mfi, color=color.yellow, linewidth = 5, title="RSI_MFI")
+// 绘制VWMA、RSI_MFI、信号
+plot(rsi_mfi, color=color.yellow, linewidth = 2, title="RSI_MFI")
 plot(vwma_above, "VWMA上轨", color=red, editable=false)
 plot(vwma_below, "VWMA下轨", color=green, editable=false)
 plotshape(series=long, location=location.belowbar, color=color.green, style=shape.labelup, text="LONG", textcolor= color.white)
 plotshape(series=short, location=location.abovebar, color=color.red, style=shape.labeldown, text="SHORT", textcolor= color.white)
 
-// 绘制平均、止损和止盈价格
-avgPriceLine = plot(displayDealLines ? strategy.position_avg_price : na, "持仓成本", color=white, editable=false)
-stopLossLine = plot(displayDealLines ? strategy.position_avg_price * (1 - stopLossPercent) : na, "止损线", color=yellow, editable=false)
-takeProfitLine = plot(displayDealLines ? strategy.position_avg_price * (1 + takeProfitPercent) : na, "止盈线", color=yellow, editable=false)
-
 //=======}
 
-
-// 2加仓平仓逻辑======={
+// 2 开、加、平仓======={
 // Long 开仓
 if long and strategy.opentrades == 0 
     strategy.entry(id="LONG", direction=strategy.long, comment = "LongOpen # " + str.tostring(dealcount), qty = baseOrderAmount)
@@ -119,13 +109,19 @@ if strategy.position_size > 0 and short
 //=======}
 
 
-// 3止盈止损逻辑======={
+// 3 止盈止损======={
 
 // 计算sl&tp价格
 calcStopLossPrice() =>
     strategy.opentrades * strategy.position_avg_price * (1 - stopLossPercent)
 calcTakeProfitPrice() =>
     close > (strategy.position_avg_price * (1 + takeProfitPercent))
+
+
+// 绘制平均、止损和止盈价格信号
+avgPriceLine = plot(displayDealLines ? strategy.position_avg_price : na, "持仓成本", color=white, editable=false)
+stopLossLine = plot(displayDealLines ? strategy.position_avg_price * (1 - stopLossPercent) : na, "止损线", color=yellow, editable=false)
+takeProfitLine = plot(displayDealLines ? strategy.position_avg_price * (1 + takeProfitPercent) : na, "止盈线", color=yellow, editable=false)
 
 //=======}
 
