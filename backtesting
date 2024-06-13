@@ -80,14 +80,14 @@ plotshape(series=short, location=location.abovebar, color=color.red, style=shape
 //=======}
 
 // 2 开、加、平仓======={
-// Long 开仓
+// 1：根据信号决定持仓
 if long and strategy.opentrades == 0 
     strategy.entry(id="LONG", direction=strategy.long, comment = "LongOpen # " + str.tostring(dealcount), qty = baseOrderAmount / close)
     lastDCAPrice := baseOrderAmount
     dealcount := dealcount + 1
     alert("新做多交易 {{ticker}}", freq=alert.freq_once_per_bar_close)
 
-// Long 加仓
+// 2：DCA加仓
 if (long and 
      strategy.opentrades > 0 and 
      strategy.opentrades < numberOfDCAOrders and 
@@ -97,33 +97,33 @@ if (long and
     socounter := socounter + 1
     alert("新DCA加仓 {{ticker}}", freq=alert.freq_once_per_bar_close)
 
-// Long 平仓
-if strategy.position_size > 0 and short
-    strategy.close("LONG", comment="LongClose")
-    alert("交易平仓 {{ticker}}", freq=alert.freq_once_per_bar_close)
-    message = ""
-    message += "PNL: " + str.tostring(math.round(strategy.closedtrades.profit(strategy.closedtrades - 1), 2)) + ' ' + str.tostring(syminfo.currency) + '\n'
-    message += "PNL%: " + str.tostring(math.round(strategy.closedtrades.profit_percent(strategy.closedtrades - 1), 2)) + " %"
-    label.new(bar_index + 1, y= high * 1.01, text=message, yloc=yloc.price, style=label.style_label_lower_left, textcolor=white, textalign=text.align_left, color=yellow)
+// 3：平仓
+// 3.1 平仓信号检查
+checkShortCondition() =>
+    if short
+        strategy.close("LONG", comment="LongClose")
+        alert("信号平仓 {{ticker}}", freq=alert.freq_once_per_bar_close)
 
-//=======}
+// 3.2 止盈止损检查
+checkTakeProfit() =>
+    if strategy.openprofit >= strategy.equity * takeProfitPercent
+        strategy.close(id="LONG", comment="Take Profit")
+        alert("止盈平仓 {{ticker}}", freq=alert.freq_once_per_bar_close)
 
+checkStopLoss() =>
+    if strategy.openprofit >= strategy.equity * stopLossPercent
+        strategy.close(id="LONG", comment="Stop Loss")
+        alert("止损平仓 {{ticker}}", freq=alert.freq_once_per_bar_close)
 
-// 3 止盈止损======={
-
-// 计算sl&tp价格
-calcStopLossPrice() =>
-    strategy.opentrades * strategy.position_avg_price * (1 - stopLossPercent)
-calcTakeProfitPrice() =>
-    close > (strategy.position_avg_price * (1 + takeProfitPercent))
+if (strategy.opentrades > 0)
+    checkShortCondition()
+    checkTakeProfit()
+    checkStopLoss()
 
 // 绘制平均、止损和止盈价格信号
 avgPriceLine = plot(displayDealLines ? strategy.position_avg_price : na, "持仓成本", color=white, editable=false)
 stopLossLine = plot(displayDealLines ? strategy.position_avg_price * (1 - stopLossPercent) : na, "止损线", color=yellow, editable=false)
 takeProfitLine = plot(displayDealLines ? strategy.position_avg_price * (1 + takeProfitPercent) : na, "止盈线", color=yellow, editable=false)
-
-//=======}
-
 
 //右上角交易状态======={
 // 定义表格位置
