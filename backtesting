@@ -48,7 +48,6 @@ bool displayDealLines = input(true, "是否显示交易线", group=visual_group)
 // 初始化设置
 var int socounter = 0  // 加仓计数器
 var int dealcount = 0  // 交易计数器
-var int glb_dealstart_bar_time = na  // 全局交易开始时间
 var float lastDCAPrice = 0.0  // 记录上次 DCA 加仓的价格
 var float totalCapitalUsed = 0.0  // 记录总共投入的资金
 //=======}
@@ -117,34 +116,25 @@ WhenAddCondition() =>
 
 
 // 2加仓平仓逻辑======={
+
+
+
+
 // 执行交易的函数，增加默认qty参数值
 executeTrade(type, comment, qty = 0) =>
-    var int trade_time = na
     if type == "open" or type == "add"
         if qty != 0
             strategy.entry("LONG", strategy.long, comment=comment, qty=qty)
             alert(type == "open" ? "新做多交易 {{ticker}}" : "新DCA交易 {{ticker}}", freq=alert.freq_once_per_bar_close)
-            if type == "open"
-                trade_time := time  // 返回开仓时间
-            else
-                trade_time := time  // 返回当前时间
     if type == "close"
         strategy.close("LONG", comment=" ")
         alert("交易平仓 {{ticker}}", freq=alert.freq_once_per_bar_close)
-        trade_time := time // 返回当前时间
-    trade_time
-
-// 时间主逻辑
-var int open_time = na
-var int close_time = na
 
 // Long 开仓逻辑
 if long and strategy.opentrades == 0 
-    open_time := executeTrade("open", "D # " + str.tostring(strategy.closedtrades + 1), baseOrderAmount / close)
-    if not na(open_time)
-        glb_dealstart_bar_time := open_time
-        lastDCAPrice := strategy.position_avg_price  // 在开仓时初始化 lastDCAPrice
-        socounter := socounter + 1
+    executeTrade("open", "D # " + str.tostring(strategy.closedtrades + 1), baseOrderAmount / close)
+    lastDCAPrice := strategy.position_avg_price  // 在开仓时初始化 lastDCAPrice
+    socounter := socounter + 1
 
 // Long 加仓逻辑
 if long and strategy.opentrades > 0 and strategy.opentrades < numberOfDCAOrders 
@@ -164,9 +154,8 @@ plotPNLLabel() =>
     
 // Long 平仓逻辑
 if strategy.position_size > 0 and short and (minimumTakeProfitEnabled ? calcTakeProfitPrice() : true) 
-    close_time := executeTrade("close", "")
-    if not na(close_time)
-        plotPNLLabel()
+    executeTrade("close", "")
+    plotPNLLabel()
 //=======}
 
 
