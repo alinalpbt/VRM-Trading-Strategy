@@ -53,7 +53,8 @@ var float totalCapitalUsed = 0.0  // 记录总共投入的资金
 //=======}
 
 
-//1核心交易开仓逻辑======={
+// 1 核心交易开仓逻辑======={
+
 // 计算成交量加权移动平均（Volume Weighted Moving Average）
 float core = ta.vwma(hlc3, 14)
 float vwma_above = core * (1 + (ChangePercentage / 100))
@@ -68,54 +69,24 @@ float mfi = ta.mfi(hlc3, 7)
 float rsi_mfi = math.abs(rsi + mfi / 2)
 
 // 生成交易信号
-long = (low <= vwma_below) and (rsi_mfi < below)
-short = (high >= vwma_above) and (rsi_mfi > above)
+bool long = (low <= vwma_below) and (rsi_mfi < below)
+bool short = (high >= vwma_above) and (rsi_mfi > above)
+
+// ---画图--- rsi mfi有问题
+plot(rsi, color=color.orange, linewidth = 5, title="RSI")
+plot(mfi, color=color.purple, linewidth = 5, title="MFI")
+plot(rsi_mfi, color=color.yellow, linewidth = 5, title="RSI_MFI")
+plot(vwma_above, "VWMA上轨", color=red, editable=false)
+plot(vwma_below, "VWMA下轨", color=green, editable=false)
+plotshape(series=long, location=location.belowbar, color=color.green, style=shape.labelup, text="LONG", textcolor= color.white)
+plotshape(series=short, location=location.abovebar, color=color.red, style=shape.labeldown, text="SHORT", textcolor= color.white)
+
+// 绘制平均、止损和止盈价格
+avgPriceLine = plot(displayDealLines ? strategy.position_avg_price : na, "持仓成本", color=white, editable=false)
+stopLossLine = plot(displayDealLines ? strategy.position_avg_price * (1 - stopLossPercent) : na, "止损线", color=yellow, editable=false)
+takeProfitLine = plot(displayDealLines ? strategy.position_avg_price * (1 + takeProfitPercent) : na, "止盈线", color=yellow, editable=false)
+
 //=======}
-
-
-// 策略相关功能函数======={
-// 计算加仓偏移价格的函数（止损和加仓应该是两个函数，止损是总投入资金偏移量<=2%，加仓是加权平均价格偏移量<=2%，该处写法为加仓偏移量）
-calcDCAOffsetPrice() =>
-    if strategy.position_size > 0 
-        math.round((strategy.position_avg_price - addPercentage  / 100 * strategy.position_avg_price) / syminfo.mintick) * syminfo.mintick
-    else if strategy.position_size < 0 
-        math.round((strategy.position_avg_price + addPercentage  / 100 * strategy.position_avg_price) / syminfo.mintick) * syminfo.mintick
-    else
-        na
-
-// 计算自上次交易以来价格变化百分比
-calcPriceChangeFromLastDeal() =>
-    lastDealPrice = strategy.opentrades.entry_price(strategy.opentrades - 1)
-    math.abs((close - lastDealPrice) / close * 100)
-
-// 计算止损订单资金总额
-calcCapitalForStopOrders() =>
-    float totalCapital = 0.0
-    initialSO = baseOrderAmount * dcaMultiplier
-    for i = 1 to numberOfDCAOrders - 1
-        orderSize = initialSO * math.pow(dcaMultiplier, i - 1)
-        totalCapital += orderSize
-    totalCapital + baseOrderAmount
-
-// 计算特定批次的订单大小
-calculateOrderSize(orderNumber) =>
-    baseOrderAmount * math.pow(dcaMultiplier, orderNumber)
-
-// 计算sl&tp价格
-calcStopLossPrice() =>
-    strategy.opentrades * strategy.position_avg_price * (1 - stopLossPercent)
-calcTakeProfitPrice() =>
-    close > (strategy.position_avg_price * (1 + takeProfitPercent))
-
-// 盈亏标签显示
-plotPNLLabel() =>
-    message = ""
-    message += "PNL: " + str.tostring(math.round(strategy.closedtrades.profit(strategy.closedtrades - 1), 2)) + ' ' + str.tostring(syminfo.currency) + '\n'
-    message += "PNL%: " + str.tostring(math.round(strategy.closedtrades.profit_percent(strategy.closedtrades - 1), 2)) + " %"
-    label.new(bar_index + 1, y= high * 1.01, text=message, yloc=yloc.price, style=label.style_label_lower_left, textcolor=white, textalign=text.align_left, color=yellow)
-    
-//=======}
-
 
 
 // 2加仓平仓逻辑======={
@@ -140,32 +111,21 @@ if (long and
 if strategy.position_size > 0 and short
     strategy.close("LONG", comment="LongClose")
     alert("交易平仓 {{ticker}}", freq=alert.freq_once_per_bar_close)
-    plotPNLLabel()
+    message = ""
+    message += "PNL: " + str.tostring(math.round(strategy.closedtrades.profit(strategy.closedtrades - 1), 2)) + ' ' + str.tostring(syminfo.currency) + '\n'
+    message += "PNL%: " + str.tostring(math.round(strategy.closedtrades.profit_percent(strategy.closedtrades - 1), 2)) + " %"
+    label.new(bar_index + 1, y= high * 1.01, text=message, yloc=yloc.price, style=label.style_label_lower_left, textcolor=white, textalign=text.align_left, color=yellow)
+
 //=======}
 
 
 // 3止盈止损逻辑======={
 
-//=======}
-
-
-
-// 绘制交易信号，阈值线和盈亏标签======={
-// VMMA上轨和下轨显示
-hp = plot(vwma_above, "VWMA上轨", color=red, editable=false)
-lp = plot(vwma_below, "VWMA下轨", color=green, editable=false)
-ap = plot(core,"VWMA价", color = white, editable=false)
-
-// 买入和平仓信号
-plotshape(series=long, title="买入信号", style=shape.labelup, location=location.belowbar, color=green, size=size.tiny, text="buy", textcolor=white, editable=false)
-plotshape(series=short, title="平仓信号", style=shape.labeldown, location=location.abovebar, color=red, size=size.tiny, text="close", textcolor=white, editable=false)
-
-
-// 绘制平均、止损和止盈价格
-avgPriceLine = plot(displayDealLines ? strategy.position_avg_price : na, "持仓成本", color=white, editable=false)
-stopLossLine = plot(displayDealLines ? strategy.position_avg_price * (1 - stopLossPercent) : na, "止损线", color=yellow, editable=false)
-takeProfitLine = plot(displayDealLines ? strategy.position_avg_price * (1 + takeProfitPercent) : na, "止盈线", color=yellow, editable=false)
-
+// 计算sl&tp价格
+calcStopLossPrice() =>
+    strategy.opentrades * strategy.position_avg_price * (1 - stopLossPercent)
+calcTakeProfitPrice() =>
+    close > (strategy.position_avg_price * (1 + takeProfitPercent))
 
 //=======}
 
@@ -207,10 +167,9 @@ fillTable(summary_table) =>
     table.cell(summary_table, 0, 1, text = '交易状态',bgcolor = color.rgb(101, 101, 101, 80), text_color = white, text_size = size.small)
     table.cell(summary_table, 1, 1, text = statusOpen(), bgcolor = color.rgb(101, 101, 101, 80), text_color = white, text_size = size.small)
 
-    // 所需资本
+    // 所需资本 （不知道什么意思）
     row = 2
-    requiredCapital = calcCapitalForStopOrders()
-    table.cell(summary_table, 0, row, text = "所需资本: " + str.tostring(requiredCapital), bgcolor = color.rgb(101, 101, 101, 80), text_color = white, text_size = size.small)
+    table.cell(summary_table, 0, row, text = "所需资本: " + str.tostring(0), bgcolor = color.rgb(101, 101, 101, 80), text_color = white, text_size = size.small)
 
     // 总盈亏
     table.cell(summary_table, 0, row + 1, text = "总盈亏: " + str.tostring(math.round(strategy.netprofit,2 )), bgcolor = color.rgb(101, 101, 101, 80), text_color = white, text_size = size.small)
