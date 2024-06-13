@@ -74,8 +74,8 @@ bool short = (high >= vwma_above) and (rsi_mfi > above)
 plot(rsi_mfi, color=color.yellow, linewidth = 2, title="RSI_MFI")
 plot(vwma_above, "VWMA上轨", color=red, editable=false)
 plot(vwma_below, "VWMA下轨", color=green, editable=false)
-plotshape(series=long, location=location.belowbar, color=color.green, style=shape.labelup, text="LONG", textcolor= color.white)
-plotshape(series=short, location=location.abovebar, color=color.red, style=shape.labeldown, text="SHORT", textcolor= color.white)
+plotshape(series=long and strategy.opentrades == 0, location=location.belowbar, color=color.green, style=shape.labelup, text="LONG", textcolor= color.white)
+plotshape(series=short and strategy.opentrades > 0, location=location.abovebar, color=color.red, style=shape.labeldown, text="SHORT", textcolor= color.white)
 
 //=======}
 
