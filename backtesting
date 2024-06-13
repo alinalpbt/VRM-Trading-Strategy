@@ -102,6 +102,12 @@ calcCapitalForStopOrders() =>
 calculateOrderSize(orderNumber) =>
     baseOrderAmount * math.pow(dcaMultiplier, orderNumber)
 
+// 计算sl&tp价格
+calcStopLossPrice() =>
+    strategy.opentrades * strategy.position_avg_price * (1 - stopLossPercent)
+calcTakeProfitPrice() =>
+    close > (strategy.position_avg_price * (1 + takeProfitPercent))
+
 // 定义加仓条件
 WhenAddCondition() =>
     calcPriceChangeFromLastDeal() > addPercentage and close < calcStopLossPrice()
@@ -149,6 +155,13 @@ if long and strategy.opentrades > 0 and strategy.opentrades < numberOfDCAOrders
         lastDCAPrice := close
         socounter := socounter + 1
 
+// 盈亏标签显示
+plotPNLLabel() =>
+    message = ""
+    message += "PNL: " + str.tostring(math.round(strategy.closedtrades.profit(strategy.closedtrades - 1), 2)) + ' ' + str.tostring(syminfo.currency) + '\n'
+    message += "PNL%: " + str.tostring(math.round(strategy.closedtrades.profit_percent(strategy.closedtrades - 1), 2)) + " %"
+    label.new(bar_index + 1, y= high * 1.01, text=message, yloc=yloc.price, style=label.style_label_lower_left, textcolor=white, textalign=text.align_left, color=yellow)
+    
 // Long 平仓逻辑
 if strategy.position_size > 0 and short and (minimumTakeProfitEnabled ? calcTakeProfitPrice() : true) 
     close_time := executeTrade("close", "")
@@ -158,11 +171,7 @@ if strategy.position_size > 0 and short and (minimumTakeProfitEnabled ? calcTake
 
 
 // 3止盈止损逻辑======={
-// 计算sl&tp价格
-calcStopLossPrice() =>
-    strategy.opentrades * strategy.position_avg_price * (1 - stopLossPercent)
-calcTakeProfitPrice() =>
-    close > (strategy.position_avg_price * (1 + takeProfitPercent))
+
 //=======}
 
 
@@ -183,12 +192,7 @@ avgPriceLine = plot(displayDealLines ? strategy.position_avg_price : na, "持仓
 stopLossLine = plot(displayDealLines ? strategy.position_avg_price * (1 - stopLossPercent) : na, "止损线", color=yellow, editable=false)
 takeProfitLine = plot(displayDealLines ? strategy.position_avg_price * (1 + takeProfitPercent) : na, "止盈线", color=yellow, editable=false)
 
-// 盈亏标签显示
-plotPNLLabel() =>
-    message = ""
-    message += "PNL: " + str.tostring(math.round(strategy.closedtrades.profit(strategy.closedtrades - 1), 2)) + ' ' + str.tostring(syminfo.currency) + '\n'
-    message += "PNL%: " + str.tostring(math.round(strategy.closedtrades.profit_percent(strategy.closedtrades - 1), 2)) + " %"
-    label.new(bar_index + 1, y= high * 1.01, text=message, yloc=yloc.price, style=label.style_label_lower_left, textcolor=white, textalign=text.align_left, color=yellow)
+
 //=======}
 
 
