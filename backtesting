@@ -40,7 +40,7 @@ bool DCAType = input.string("Volume Multiply","DCA类型",options = ["Volume Mul
 // SL&TP设置
 bool minimumTakeProfitEnabled = input.bool(true, "启用止盈%", group=sltp_group) 
 float takeProfitPercent = input.float(2.0, "止盈 (%)", group=sltp_group) / 100
-float stopLossPercent = input.float(2.0, "止损 (%)", group=sltp_group) /100
+float stopLossPercent = input.float(2.0, "止损 (%)", group=sltp_group) / 100
 
 // 视觉设置
 bool displayDealLines = input(true, "是否显示交易线", group=visual_group)
@@ -123,8 +123,8 @@ if (strategy.opentrades > 0)
 
 // 绘制持仓成本、add加仓信号价格
 avgPriceLine = plot(displayDealLines ? strategy.position_avg_price : na, "持仓成本", color=white, style=plot.style_linebr, editable=false)
-addTopLine = plot(displayDealLines ?  strategy.position_avg_price * (1 + stopLossPercent) : na, "add上线", color=yellow, style=plot.style_linebr, editable=false)
-addDownLine = plot(displayDealLines ? strategy.position_avg_price * (1 - takeProfitPercent): na, "add下线", color=yellow, style=plot.style_linebr, editable=false)
+addTopLine = plot(displayDealLines ?  strategy.position_avg_price * (1 + addPercent) : na, "add上线", color=yellow, style=plot.style_linebr, editable=false)
+addDownLine = plot(displayDealLines ? strategy.position_avg_price * (1 - addPercent): na, "add下线", color=yellow, style=plot.style_linebr, editable=false)
 //todo：止盈止损
 
 
