@@ -81,7 +81,7 @@ plotshape(series=short and strategy.opentrades > 0, location=location.abovebar, 
 
 // 2 开、加仓======={
 
-// 盈亏标签显示
+// 绘制盈亏标签
 plotPNLLabel() =>
     message = ""
     message += "PNL: " + str.tostring(math.round(strategy.closedtrades.profit(strategy.closedtrades - 1), 2)) + ' ' + str.tostring(syminfo.currency) + '\n'
@@ -93,6 +93,7 @@ if long and strategy.opentrades == 0
     strategy.entry(id="LONG", direction=strategy.long, comment = "LongOpen # " + str.tostring(dealcount), qty = baseOrderAmount / close)
     lastDCAPrice := baseOrderAmount
     dealcount := dealcount + 1
+    socounter := 1
     alert("新做多交易 {{ticker}}", freq=alert.freq_once_per_bar_close)
 
 // 2：DCA加仓
@@ -101,11 +102,11 @@ if (long and
      strategy.opentrades < numberOfDCAOrders and 
      close <= strategy.opentrades.entry_price(strategy.opentrades - 1) * (1-addPercent))
     lastDCAPrice := lastDCAPrice * dcaMultiplier
-    strategy.entry(id="LONG", direction=strategy.long, comment = "LongAdd # " + str.tostring(dealcount), qty = lastDCAPrice / close)
+    strategy.entry(id="LONG", direction=strategy.long, comment = "LongAdd # " + str.tostring(socounter), qty = lastDCAPrice / close)
     socounter := socounter + 1
     alert("新DCA加仓 {{ticker}}", freq=alert.freq_once_per_bar_close)
 
-// 3：平仓
+// 3：信号、止盈、止损平仓
 if (strategy.opentrades > 0)
     if short and close > strategy.position_avg_price * (1 + takeProfitPercent)
         strategy.close("LONG", comment="LongClose")
@@ -164,9 +165,9 @@ fillTable(summary_table) =>
     table.cell(summary_table, 0, 1, text = '交易状态',bgcolor = color.rgb(101, 101, 101, 80), text_color = white, text_size = size.small)
     table.cell(summary_table, 1, 1, text = statusOpen(), bgcolor = color.rgb(101, 101, 101, 80), text_color = white, text_size = size.small)
 
-    // 所需资本 （不知道什么意思）
+    // 所需资本
     row = 2
-    table.cell(summary_table, 0, row, text = "所需资本: " + str.tostring(0), bgcolor = color.rgb(101, 101, 101, 80), text_color = white, text_size = size.small)
+    table.cell(summary_table, 0, row, text = "所需资本: " + str.tostring(math.round(strategy.equity)), bgcolor = color.rgb(101, 101, 101, 80), text_color = white, text_size = size.small)
 
     // 总盈亏
     table.cell(summary_table, 0, row + 1, text = "总盈亏: " + str.tostring(math.round(strategy.netprofit,2 )), bgcolor = color.rgb(101, 101, 101, 80), text_color = white, text_size = size.small)
