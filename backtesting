@@ -4,7 +4,6 @@
 // 策略默认设置======={
 strategy("VRM Strategy", 
    overlay=true, // 允许策略叠加在图表上
-   pyramiding = 4,  //最多加仓次数@momo
    default_qty_type = strategy.cash,  // 设置默认的交易量类型为现金
    initial_capital = 10000,  // 设置初始资本
    commission_type = strategy.commission.percent,  // 设置佣金类型为百分比
@@ -90,7 +89,7 @@ plotPNLLabel() =>
 
 // 1：根据信号决定持仓
 if long and strategy.opentrades == 0 
-    strategy.entry(id="LONG", direction=strategy.long, comment = "LongOpen # " + str.tostring(dealcount), qty = baseOrderAmount / close)
+    strategy.order(id="LONG", direction=strategy.long, comment = "LongOpen # " + str.tostring(dealcount), qty = baseOrderAmount / close)
     lastDCAPrice := baseOrderAmount
     dealcount := dealcount + 1
     socounter := 1
@@ -102,7 +101,7 @@ if (long and
      strategy.opentrades < numberOfDCAOrders and 
      close <= strategy.opentrades.entry_price(strategy.opentrades - 1) * (1-addPercent))
     lastDCAPrice := lastDCAPrice * dcaMultiplier
-    strategy.entry(id="LONG", direction=strategy.long, comment = "LongAdd # " + str.tostring(socounter), qty = lastDCAPrice / close)
+    strategy.order(id="LONG", direction=strategy.long, comment = "LongAdd # " + str.tostring(socounter), qty = lastDCAPrice / close)
     socounter := socounter + 1
     alert("新DCA加仓 {{ticker}}", freq=alert.freq_once_per_bar_close)
 
