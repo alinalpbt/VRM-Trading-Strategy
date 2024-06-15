@@ -47,6 +47,7 @@ bool displayDealLines = input(true, "是否显示交易线", group=visual_group)
 // 初始化设置
 var int socounter = 0  // 加仓计数器
 var int dealcount = 0  // 交易计数器
+var float allqty = 0
 var float lastDCAPrice = 0.0  // 记录上次 DCA 加仓的价格
 var float totalCapitalUsed = 0.0  // 记录总共投入的资金
 
@@ -83,8 +84,8 @@ plotshape(series=short and strategy.opentrades > 0, location=location.abovebar, 
 // 绘制盈亏标签
 plotPNLLabel() =>
     message = ""
-    message += "PNL: " + str.tostring(math.round(strategy.closedtrades.profit(strategy.closedtrades - 1), 2)) + ' ' + str.tostring(syminfo.currency) + '\n'
-    message += "PNL%: " + str.tostring(math.round(strategy.closedtrades.profit_percent(strategy.closedtrades - 1), 2)) + " %"
+    message += "PNL: " + str.tostring(math.round((close - strategy.position_avg_price)*allqty, 2)) + ' ' + str.tostring(syminfo.currency) + "\n"
+    message += "PNL%: " + str.tostring(math.round((close - strategy.position_avg_price)*allqty / strategy.equity * 100, 2)) + " %"
     label.new(bar_index + 1, y= high * 1.01, text=message, yloc=yloc.price, style=label.style_label_lower_left, textcolor=white, textalign=text.align_left, color=yellow)
 
 // 1：根据信号决定持仓
@@ -93,6 +94,7 @@ if long and strategy.opentrades == 0
     lastDCAPrice := baseOrderAmount
     dealcount := dealcount + 1
     socounter := 1
+    allqty := baseOrderAmount / close
     alert("新做多交易 {{ticker}}", freq=alert.freq_once_per_bar_close)
 
 // 2：DCA加仓
@@ -103,6 +105,7 @@ if (long and
     lastDCAPrice := lastDCAPrice * dcaMultiplier
     strategy.order(id="LONG", direction=strategy.long, comment = "LongAdd # " + str.tostring(socounter), qty = lastDCAPrice / close)
     socounter := socounter + 1
+    allqty := allqty + lastDCAPrice / close
     alert("新DCA加仓 {{ticker}}", freq=alert.freq_once_per_bar_close)
 
 // 3：信号、止盈、止损平仓
