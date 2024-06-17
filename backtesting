@@ -1,14 +1,14 @@
 //@version=5
-// 根据vwma上下轨，结合rsi+1/2mfi参数的上下轨过滤，确定开平仓位置
+// 根据vwma上下轨，结合rsi+1/2mfi参数的上下轨过滤，确定开平仓 位置
 
 // 策略默认设置======={
 strategy("VRM Strategy", 
    overlay=true, // 允许策略叠加在图表上
    default_qty_type = strategy.cash,  // 设置默认的交易量类型为现金
-   initial_capital = 10000,  // 设置初始资本
+   initial_capital = 1000000,  // 设置初始资本
    commission_type = strategy.commission.percent,  // 设置佣金类型为百分比
-   commission_value = 0.1,  // 设置交易佣金的百分比值
-   default_qty_value = 1000  // 设置默认交易金额
+   commission_value = 0.1  // 设置交易佣金的百分比值
+//    default_qty_value = 1000  // 设置默认交易金额
    )
 
 // 自定义颜色
@@ -26,18 +26,18 @@ string visual_group = "视觉设置"
 
 // 策略设置
 float ChangePercentage = input.float(1.4, 'VRM系数(0-5)', group=strategy_group, tooltip="可以理解为价格波动，时间周期越短，数字应该越小")
-float below = input(40, "下轨阈值(0-150)", group=strategy_group, tooltip="数字越小,买入机会越小。这里参数大体是RSI+1/2MFI,建议值是30+10=40")
-float above = input(110, "上轨阈值(0-150)", group=strategy_group, tooltip="数字越大，卖出机会越小.这里参数大体是RSI+1/2MFI,建议值是70+40=110")
+float below = input(45, "下轨阈值(0-150)", group=strategy_group, tooltip="数字越小,买入机会越小。这里参数大体是RSI+1/2MFI,建议值是30+10=40")
+float above = input(105, "上轨阈值(0-150)", group=strategy_group, tooltip="数字越大，卖出机会越小.这里参数大体是RSI+1/2MFI,建议值是70+40=110")
 
 // DCA设置
 float addPercent = input.float(2.0, "DCA 加仓触发百分比 (%)", group=dca_group, tooltip="价格下跌达到此比例时触发DCA加仓") / 100
-float baseOrderAmount = input.float(1000, "基础订单金额 ($)", group=dca_group)
+float baseOrderAmount = input.float(100000, "基础订单金额 ($)", group=dca_group)
 float dcaMultiplier = input.float(1.5, "DCA 倍数", group=dca_group, tooltip="对仓位大小进行倍增")
-int numberOfDCAOrders = input.int(3, "DCA 订单数量", group=dca_group, tooltip="How Many DCA orders Do you want ?") + 1
+int numberOfDCAOrders = input.int(4, "DCA 订单数量", group=dca_group, tooltip="How Many DCA orders Do you want ?") + 1
 bool DCAType = input.string("Volume Multiply","DCA类型",options = ["Volume Multiply","Base Multiply"],group = dca_group) == "Volume Multiply"
 
 // SL&TP设置
-bool minimumTakeProfitEnabled = input.bool(true, "启用止盈%", group=sltp_group) 
+// bool minimumTakeProfitEnabled = input.bool(true, "启用止盈%", group=sltp_group) 
 float takeProfitPercent = input.float(2.0, "止盈 (%)", group=sltp_group) / 100
 float stopLossPercent = input.float(2.0, "止损 (%)", group=sltp_group) / 100
 
@@ -103,7 +103,7 @@ if (long and
      strategy.opentrades < numberOfDCAOrders and 
      close <= strategy.opentrades.entry_price(strategy.opentrades - 1) * (1-addPercent))
     lastDCAPrice := lastDCAPrice * dcaMultiplier
-    strategy.order(id="LONG", direction=strategy.long, comment = "LongAdd # " + str.tostring(socounter), qty = lastDCAPrice / close)
+    strategy.order(id="LONG #" + str.tostring(socounter), direction=strategy.long, comment = "LongAdd # " + str.tostring(socounter), qty = lastDCAPrice / close)
     socounter := socounter + 1
     allqty := allqty + lastDCAPrice / close
     alert("新DCA加仓 {{ticker}}", freq=alert.freq_once_per_bar_close)
@@ -111,17 +111,21 @@ if (long and
 // 3：信号、止盈、止损平仓
 if (strategy.opentrades > 0)
     if short and close > strategy.position_avg_price * (1 + takeProfitPercent)
-        strategy.close("LONG", comment="LongClose")
+        strategy.close_all(comment="LongClose" + str.tostring(strategy.opentrades))
         alert("信号平仓 {{ticker}}", freq=alert.freq_once_per_bar_close)
+        socounter := 0
         plotPNLLabel()
-    else if strategy.openprofit > 0 and strategy.openprofit >= strategy.equity * takeProfitPercent
-        strategy.close(id="LONG", comment="Take Profit")
+    else if short and strategy.openprofit > 0 and strategy.openprofit >= strategy.equity * takeProfitPercent
+        strategy.close_all(comment="Take Profit" + str.tostring(strategy.opentrades))
         alert("止盈平仓 {{ticker}}", freq=alert.freq_once_per_bar_close)
+        socounter := 0
         plotPNLLabel()
-    else if strategy.openprofit < 0 and strategy.openprofit <= strategy.equity * -stopLossPercent
-        strategy.close(id="LONG", comment="Stop Loss")
+    else if short and strategy.openprofit < 0 and strategy.openprofit <= strategy.equity * -stopLossPercent
+        strategy.close_all(comment="Stop Loss" + str.tostring(strategy.opentrades))
         alert("止损平仓 {{ticker}}", freq=alert.freq_once_per_bar_close)
+        socounter := 0
         plotPNLLabel()
+    
 
 // 绘制持仓成本、add加仓信号价格
 avgPriceLine = plot(displayDealLines ? strategy.position_avg_price : na, "持仓成本", color=white, style=plot.style_linebr, editable=false)
