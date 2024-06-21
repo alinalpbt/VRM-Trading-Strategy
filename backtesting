@@ -1,6 +1,17 @@
 //@version=5
 // 根据vwma上下轨，结合rsi+1/2mfi参数的上下轨过滤，确定开平仓 位置
 
+// bug：
+// - longadd在shortclose之后，出错
+
+// 重要优化：
+// - short的dca没有写
+// - 止盈改成atr/吊灯
+
+// 优化：
+// - 参数改成动态
+// - dca加仓超出本金报错
+
 // 策略默认设置======={
 strategy("VRM Strategy", 
    overlay=true, // 允许策略叠加在图表上
