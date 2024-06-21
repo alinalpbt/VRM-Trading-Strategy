@@ -1,17 +1,6 @@
 //@version=5
 // 根据vwma上下轨，结合rsi+1/2mfi参数的上下轨过滤，确定开平仓 位置
 
-// bug：
-// - longadd在shortclose之后，出错
-
-// 重要优化：
-// - short的dca没有写
-// - 止盈改成atr/吊灯
-
-// 优化：
-// - 参数改成动态
-// - dca加仓超出本金报错
-
 // 策略默认设置======={
 strategy("VRM Strategy", 
    overlay=true, // 允许策略叠加在图表上
@@ -128,9 +117,9 @@ if (long and
 // 3：信号、止盈、止损平仓
 if (totalLongTrades > 0)
     // 止盈是总仓位的x%的方案
-    if short and close > strategy.position_avg_price * (1 + takeProfitPercent)
+    // if short and close > strategy.position_avg_price * (1 + takeProfitPercent)
     // 止盈是总共本金的x%方案
-    // if short and strategy.openprofit >= strategy.equity * takeProfitPercent
+    if short and strategy.openprofit >= strategy.equity * takeProfitPercent
         strategy.close(id="LONG", comment="Take Profit" + str.tostring(strategy.opentrades))
         alert("止盈平仓 {{ticker}}", freq=alert.freq_once_per_bar_close)
         addcounter := 0
@@ -139,9 +128,9 @@ if (totalLongTrades > 0)
         strategy.order(id="SHORT", direction=strategy.short, comment = "Short Open", qty = baseOrderAmount / close)
     
     // 止损是总仓位的x%的方案
-    else if short and close < strategy.position_avg_price * (1 - stopLossPercent)
+    // else if short and close < strategy.position_avg_price * (1 - stopLossPercent)
     // 止损是总共本金的x%方案
-    // else if short and strategy.openprofit <= strategy.equity * -stopLossPercent
+    else if short and strategy.openprofit <= strategy.equity * -stopLossPercent
         strategy.close(id="LONG", comment="Stop Loss" + str.tostring(strategy.opentrades))
         alert("止损平仓 {{ticker}}", freq=alert.freq_once_per_bar_close)
         addcounter := 0
