@@ -1,45 +1,45 @@
 //@version=5
 // 根据vwma上下轨，结合rsi+1/2mfi参数的上下轨过滤，确定开平仓 位置
 
+// bug：
+// - longadd在shortclose之后，出错
+
+// 重要优化：
+// - short的dca没有写
+// - 止盈改成atr/吊灯
+
+// 优化：
+// - 参数改成动态
+// - dca加仓超出本金报错
+
 // 策略默认设置=======
 strategy("VRM Strategy", 
-   overlay=true, // 允许策略叠加在图表上
-   default_qty_type = strategy.cash,  // 设置默认的交易量类型为现金
-   initial_capital = 1000000,  // 设置初始资本
-   commission_type = strategy.commission.percent,  // 设置佣金类型为百分比
-   commission_value = 0.1  // 设置交易佣金的百分比值
-   )
+   overlay=true, default_qty_type = strategy.cash,  initial_capital = 1000000, commission_type = strategy.commission.percent,  commission_value = 0.1  )
 
 // 自定义颜色
-color grey = color.rgb(128, 223, 236, 61)
-color white = color.rgb(210, 210, 210)
-color red = color.rgb(128, 49, 49)
-color yellow = color.rgb(170, 140, 40)
-color green = color.rgb(26, 155, 45, 30)
-
-// 参数设置分组
-string strategy_group = "策略设置"
-string dca_group = "DCA设置"
-string sltp_group = "SL&TP设置"
-string visual_group = "视觉设置"
+var color COLOR_GREY = color.rgb(128, 223, 236, 61)
+var color COLOR_WHITE = color.rgb(210, 210, 210)
+var color COLOR_RED = color.rgb(128, 49, 49)
+var color COLOR_YELLOW = color.rgb(170, 140, 40)
+var color COLOR_GREEN = color.rgb(26, 155, 45, 30)
 
 // 策略设置
-float ChangePercentage = input.float(1.4, 'VRM系数(0-5)', group=strategy_group, tooltip="可以理解为价格波动，时间周期越短，数字应该越小")
-float below = input(45, "下轨阈值(0-150)", group=strategy_group, tooltip="数字越小,买入机会越小。这里参数大体是RSI+1/2MFI,建议值是30+10=40")
-float above = input(105, "上轨阈值(0-150)", group=strategy_group, tooltip="数字越大，卖出机会越小.这里参数大体是RSI+1/2MFI,建议值是70+40=110")
+float ChangePercentage = input.float(1.4, 'VRM系数(0-5)', group="策略设置")
+float below = input(45, "下轨阈值(0-150)", group="策略设置")
+float above = input(105, "上轨阈值(0-150)", group="策略设置")
 
 // DCA设置
-float addPercent = input.float(2.0, "DCA 加仓触发百分比 (%)", group=dca_group, tooltip="价格下跌达到此比例时触发DCA加仓") / 100
-float baseOrderAmount = input.float(100000, "基础订单金额 ($)", group=dca_group)
-float dcaMultiplier = input.float(1.5, "DCA 倍数", group=dca_group, tooltip="对仓位大小进行倍增")
-int numberOfDCAOrders = input.int(4, "DCA 订单数量", group=dca_group, tooltip="How Many DCA orders Do you want ?") + 1
+float addPercent = input.float(2.0, "DCA 加仓触发百分比 (%)", group="DCA设置", tooltip="价格下跌达到此比例时触发DCA加仓") / 100
+float baseOrderAmount = input.float(100000, "基础订单金额 ($)", group="DCA设置")
+float dcaMultiplier = input.float(1.5, "DCA 倍数", group="DCA设置", tooltip="每次加仓乘以倍数")
+int numberOfDCAOrders = input.int(4, "DCA 订单数量", group="DCA设置", tooltip="最多加仓几次") + 1
 
 // SL&TP设置
-float takeProfitPercent = input.float(2.0, "止盈 (%)", group=sltp_group) / 100
-float stopLossPercent = input.float(2.0, "止损 (%)", group=sltp_group) / 100
+float takeProfitPercent = input.float(2.0, "止盈 (%)", group="SL&TP设置") / 100
+float stopLossPercent = input.float(2.0, "止损 (%)", group="SL&TP设置") / 100
 
 // 视觉设置
-bool displayDealLines = input(true, "是否显示交易线", group=visual_group)
+bool displayDealLines = input(true, "是否显示交易线", group="视觉设置")
 
 // 初始化设置
 var int addCounter = 0  // 加仓计数器
@@ -50,40 +50,37 @@ var float totalCapitalUsed = 0.0  // 记录总共投入的资金
 var int totalLongTrades = 0
 var int totalShortTrades = 0
 
-
 // 1 交易信号
-// 成交量加权移动平均（Volume Weighted Moving Average）
+// 计算vwma数据
 float core = ta.vwma(hlc3, 14)
 float vwma_above = core * (1 + (ChangePercentage / 100))
 float vwma_below = core * (1 - (ChangePercentage / 100))
-
-// 计算rsi_mfi交易信号
-float up = ta.rma(math.max(ta.change(close), 0), 14) //rma = ema
-float down = ta.rma(-math.min(ta.change(close), 0), 14)
-float rsi = down == 0 ? 100 : up == 0 ? 0 : 100 - (100 / (1 + up / down))
+// 计算rsi_mfi数据
+float rsi = ta.rsi(close, 14)
 float mfi = ta.mfi(hlc3, 14)
 float rsi_mfi = math.abs(rsi + mfi / 2)
 
 // 生成交易信号
-bool long = (low <= vwma_below) and (rsi_mfi < below)
-bool short = (high >= vwma_above) and (rsi_mfi > above)
+bool longSignal = (low <= vwma_below) and (rsi_mfi < below)
+bool shortSignal = (high >= vwma_above) and (rsi_mfi > above)
 
 // 绘制VWMA、RSI_MFI、信号
-plot(vwma_above, "VWMA上轨", color=red, editable=false)
-plot(vwma_below, "VWMA下轨", color=green, editable=false)
-plotshape(series=long and strategy.opentrades == 0, location=location.belowbar, color=color.green, style=shape.labelup, text="LONG", textcolor= color.white)
-plotshape(series=short and strategy.opentrades > 0, location=location.abovebar, color=color.red, style=shape.labeldown, text="SHORT", textcolor= color.white)
+plot(vwma_above, "VWMA上轨", color=COLOR_RED)
+plot(vwma_below, "VWMA下轨", color=COLOR_GREEN)
+// todo：加入rsi_mfi的线
+plotshape(series=longSignal, location=location.belowbar, color=COLOR_GREEN, style=shape.labelup, text="LONG", textcolor= color.white)
+plotshape(series=shortSignal, location=location.abovebar, color=COLOR_RED, style=shape.labeldown, text="SHORT", textcolor= color.white)
 
-// 2 开、加仓
+// 2 开仓与加仓逻辑
 // 绘制盈亏标签
 plotPNLLabel() =>
     message = ""
     message += "PNL: " + str.tostring(math.round((close - strategy.position_avg_price)*allqty, 2)) + ' ' + str.tostring(syminfo.currency) + "\n"
     message += "PNL%: " + str.tostring(math.round((close - strategy.position_avg_price)*allqty / strategy.equity * 100, 2)) + " %"
-    label.new(bar_index + 1, y= high * 1.01, text=message, yloc=yloc.price, style=label.style_label_lower_left, textcolor=white, textalign=text.align_left, color=yellow)
+    label.new(bar_index + 1, y= high * 1.01, text=message, yloc=yloc.price, style=label.style_label_lower_left, textcolor=COLOR_WHITE, textalign=text.align_left, color=COLOR_YELLOW)
 
 // 2.1 根据信号决定持仓
-if long and totalLongTrades == 0
+if longSignal and totalLongTrades == 0
     strategy.close(id="SHORT", comment="Close Short")
     strategy.order(id="LONG", direction=strategy.long, comment = "LongOpen # " + str.tostring(dealCount), qty = baseOrderAmount / close)
     lastDCAPrice := baseOrderAmount
@@ -94,23 +91,20 @@ if long and totalLongTrades == 0
     alert("新做多交易 {{ticker}}", freq=alert.freq_once_per_bar_close)
 
 // 2.2 DCA加仓
-if (long and 
+if (longSignal and 
      totalLongTrades > 0 and 
      totalLongTrades < numberOfDCAOrders and 
      close <= strategy.position_avg_price * (1-addPercent))
     lastDCAPrice := lastDCAPrice * dcaMultiplier
-    strategy.order(id="LONG", direction=strategy.long, comment = "LongAdd # " + str.tostring(addcounter), qty = lastDCAPrice / close)
+    strategy.order(id="LONG", direction=strategy.long, comment = "LongAdd # " + str.tostring(addCounter), qty = lastDCAPrice / close)
     addCounter := addCounter + 1
     allqty := allqty + lastDCAPrice / close
     totalLongTrades := totalLongTrades + 1
     alert("新DCA加仓 {{ticker}}", freq=alert.freq_once_per_bar_close)
 
-// 2.3 信号、止盈、止损平仓
+// 2.3 止盈与止损逻辑
 if (totalLongTrades > 0)
-    // 止盈是总仓位的x%的方案
-    // if short and close > strategy.position_avg_price * (1 + takeProfitPercent)
-    // 止盈是总共本金的x%方案
-    if short and strategy.openprofit >= strategy.equity * takeProfitPercent
+    if shortSignal and strategy.openprofit >= strategy.equity * takeProfitPercent
         strategy.close(id="LONG", comment="Take Profit" + str.tostring(strategy.opentrades))
         alert("止盈平仓 {{ticker}}", freq=alert.freq_once_per_bar_close)
         addCounter := 0
@@ -118,10 +112,7 @@ if (totalLongTrades > 0)
         totalLongTrades := 0
         strategy.order(id="SHORT", direction=strategy.short, comment = "Short Open", qty = baseOrderAmount / close)
     
-    // 止损是总仓位的x%的方案
-    // else if short and close < strategy.position_avg_price * (1 - stopLossPercent)
-    // 止损是总共本金的x%方案
-    else if short and strategy.openprofit <= strategy.equity * -stopLossPercent
+    else if shortSignal and strategy.openprofit <= strategy.equity * -stopLossPercent
         strategy.close(id="LONG", comment="Stop Loss" + str.tostring(strategy.opentrades))
         alert("止损平仓 {{ticker}}", freq=alert.freq_once_per_bar_close)
         addCounter := 0
@@ -131,10 +122,9 @@ if (totalLongTrades > 0)
     
 
 // 绘制持仓成本、add加仓信号价格
-avgPriceLine = plot(displayDealLines ? strategy.position_avg_price : na, "持仓成本", color=white, style=plot.style_linebr, editable=false)
-addTopLine = plot(displayDealLines ?  strategy.position_avg_price * (1 + addPercent) : na, "add上线", color=yellow, style=plot.style_linebr, editable=false)
-addDownLine = plot(displayDealLines ? strategy.position_avg_price * (1 - addPercent): na, "add下线", color=yellow, style=plot.style_linebr, editable=false)
-
+plot(displayDealLines ? strategy.position_avg_price : na, title="持仓成本", color=COLOR_WHITE, style=plot.style_linebr)
+plot(displayDealLines ? strategy.position_avg_price * (1 + addPercent) : na, title="加仓上线", color=COLOR_YELLOW, style=plot.style_linebr)
+plot(displayDealLines ? strategy.position_avg_price * (1 - addPercent) : na, title="加仓下线", color=COLOR_YELLOW, style=plot.style_linebr)
 
 // 3 右上角交易状态
 // 查看是否已开仓
@@ -146,30 +136,24 @@ calcCurrentPNLPercentage() =>
     (close - strategy.position_avg_price) / close * 100
 
 // 创建信息展示表格
-var summary_table = table.new(position = position.top_right, columns = 2, rows = 4, frame_color = grey, frame_width = 1, border_width = 1)
-
-// 更新表格单元格信息
-// table_cell(_table, _row, in1, in2) =>
-//     table.cell(_table, 0, _row, in1, text_color = white, bgcolor = grey, text_size = size.small )
-//     table.cell(_table, 1, _row, str.tostring(in2), text_color = white, bgcolor = grey, text_size = size.small )
+var summary_table = table.new(position = position.top_right, columns = 2, rows = 4, frame_color = COLOR_GREY, frame_width = 1, border_width = 1)
 
 // 填充表格函数
 fillTable(summary_table) =>
     // 添加表头并设置样式
-    table.cell(summary_table, 0, 0, text='VRM Strategy', text_color=white, bgcolor= grey)
+    table.cell(summary_table, 0, 0, text='VRM Strategy', text_color=COLOR_WHITE, bgcolor= COLOR_GREY)
     // 合并第一行的一二两列
     table.merge_cells(summary_table, 0, 0, 1, 0)
     // 交易状态
-    table.cell(summary_table, 0, 1, text = '交易状态:',bgcolor = grey, text_color = white, text_size = size.small)
-    table.cell(summary_table, 1, 1, text = str.tostring(math.round(strategy.openprofit, 2)) + ' ' + syminfo.currency, bgcolor = grey, text_color = white, text_size = size.small)
+    table.cell(summary_table, 0, 1, text = '交易状态:',bgcolor = COLOR_GREY, text_color = COLOR_WHITE, text_size = size.small)
+    table.cell(summary_table, 1, 1, text = str.tostring(math.round(strategy.openprofit, 2)) + ' ' + syminfo.currency, bgcolor = COLOR_GREY, text_color = COLOR_WHITE, text_size = size.small)
     // 当前本金
-    table.cell(summary_table, 0, 2, text = "当前本金: ", bgcolor = grey, text_color = white, text_size = size.small)
-    table.cell(summary_table, 1, 2, text = str.tostring(math.round(strategy.equity)) + ' ' + syminfo.currency, bgcolor = grey, text_color = white, text_size = size.small)
+    table.cell(summary_table, 0, 2, text = "当前本金: ", bgcolor = COLOR_GREY, text_color = COLOR_WHITE, text_size = size.small)
+    table.cell(summary_table, 1, 2, text = str.tostring(math.round(strategy.equity)) + ' ' + syminfo.currency, bgcolor = COLOR_GREY, text_color = COLOR_WHITE, text_size = size.small)
     // 总盈亏
-    table.cell(summary_table, 0, 3, text = "总盈亏: ", bgcolor = grey, text_color = white, text_size = size.small)
-    table.cell(summary_table, 1, 3, text = str.tostring(math.round(strategy.netprofit,2 )) + ' '  + syminfo.currency, bgcolor = grey, text_color = white, text_size = size.small)
+    table.cell(summary_table, 0, 3, text = "总盈亏: ", bgcolor = COLOR_GREY, text_color = COLOR_WHITE, text_size = size.small)
+    table.cell(summary_table, 1, 3, text = str.tostring(math.round(strategy.netprofit,2 )) + ' '  + syminfo.currency, bgcolor = COLOR_GREY, text_color = COLOR_WHITE, text_size = size.small)
 
-// 随着bar更新table
 if barstate.isconfirmed
     table.clear(summary_table, 1, 1, 1, 3)
     fillTable(summary_table)
