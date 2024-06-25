@@ -1,14 +1,13 @@
 //@version=5
 // 根据vwma上下轨，结合rsi+1/2mfi参数的上下轨过滤，确定开平仓 位置
 
-// 策略默认设置======={
+// 策略默认设置=======
 strategy("VRM Strategy", 
    overlay=true, // 允许策略叠加在图表上
    default_qty_type = strategy.cash,  // 设置默认的交易量类型为现金
    initial_capital = 1000000,  // 设置初始资本
    commission_type = strategy.commission.percent,  // 设置佣金类型为百分比
    commission_value = 0.1  // 设置交易佣金的百分比值
-//    default_qty_value = 1000  // 设置默认交易金额
    )
 
 // 自定义颜色
@@ -20,8 +19,8 @@ color green = color.rgb(26, 155, 45, 30)
 
 // 参数设置分组
 string strategy_group = "策略设置"
-string sltp_group = "SL&TP设置"
 string dca_group = "DCA设置"
+string sltp_group = "SL&TP设置"
 string visual_group = "视觉设置"
 
 // 策略设置
@@ -34,10 +33,8 @@ float addPercent = input.float(2.0, "DCA 加仓触发百分比 (%)", group=dca_g
 float baseOrderAmount = input.float(100000, "基础订单金额 ($)", group=dca_group)
 float dcaMultiplier = input.float(1.5, "DCA 倍数", group=dca_group, tooltip="对仓位大小进行倍增")
 int numberOfDCAOrders = input.int(4, "DCA 订单数量", group=dca_group, tooltip="How Many DCA orders Do you want ?") + 1
-// bool DCAType = input.string("Volume Multiply","DCA类型",options = ["Volume Multiply","Base Multiply"],group = dca_group) == "Volume Multiply"
 
 // SL&TP设置
-// bool minimumTakeProfitEnabled = input.bool(true, "启用止盈%", group=sltp_group) 
 float takeProfitPercent = input.float(2.0, "止盈 (%)", group=sltp_group) / 100
 float stopLossPercent = input.float(2.0, "止损 (%)", group=sltp_group) / 100
 
@@ -45,29 +42,26 @@ float stopLossPercent = input.float(2.0, "止损 (%)", group=sltp_group) / 100
 bool displayDealLines = input(true, "是否显示交易线", group=visual_group)
 
 // 初始化设置
-var int addcounter = 0  // 加仓计数器
-var int dealcount = 0  // 交易计数器
+var int addCounter = 0  // 加仓计数器
+var int dealCount = 0  // 交易计数器
 var float allqty = 0
 var float lastDCAPrice = 0.0  // 记录上次 DCA 加仓的价格
 var float totalCapitalUsed = 0.0  // 记录总共投入的资金
-
 var int totalLongTrades = 0
 var int totalShortTrades = 0
 
-//=======}
 
-// 1 交易信号 ======={
-
+// 1 交易信号
 // 成交量加权移动平均（Volume Weighted Moving Average）
 float core = ta.vwma(hlc3, 14)
 float vwma_above = core * (1 + (ChangePercentage / 100))
 float vwma_below = core * (1 - (ChangePercentage / 100))
 
 // 计算rsi_mfi交易信号
-float up = ta.rma(math.max(ta.change(close), 0), 7) //rma = ema
-float down = ta.rma(-math.min(ta.change(close), 0), 7)
+float up = ta.rma(math.max(ta.change(close), 0), 14) //rma = ema
+float down = ta.rma(-math.min(ta.change(close), 0), 14)
 float rsi = down == 0 ? 100 : up == 0 ? 0 : 100 - (100 / (1 + up / down))
-float mfi = ta.mfi(hlc3, 7)
+float mfi = ta.mfi(hlc3, 14)
 float rsi_mfi = math.abs(rsi + mfi / 2)
 
 // 生成交易信号
@@ -80,10 +74,7 @@ plot(vwma_below, "VWMA下轨", color=green, editable=false)
 plotshape(series=long and strategy.opentrades == 0, location=location.belowbar, color=color.green, style=shape.labelup, text="LONG", textcolor= color.white)
 plotshape(series=short and strategy.opentrades > 0, location=location.abovebar, color=color.red, style=shape.labeldown, text="SHORT", textcolor= color.white)
 
-//=======}
-
-// 2 开、加仓======={
-
+// 2 开、加仓
 // 绘制盈亏标签
 plotPNLLabel() =>
     message = ""
@@ -91,30 +82,30 @@ plotPNLLabel() =>
     message += "PNL%: " + str.tostring(math.round((close - strategy.position_avg_price)*allqty / strategy.equity * 100, 2)) + " %"
     label.new(bar_index + 1, y= high * 1.01, text=message, yloc=yloc.price, style=label.style_label_lower_left, textcolor=white, textalign=text.align_left, color=yellow)
 
-// 1：根据信号决定持仓
+// 2.1 根据信号决定持仓
 if long and totalLongTrades == 0
     strategy.close(id="SHORT", comment="Close Short")
-    strategy.order(id="LONG", direction=strategy.long, comment = "LongOpen # " + str.tostring(dealcount), qty = baseOrderAmount / close)
+    strategy.order(id="LONG", direction=strategy.long, comment = "LongOpen # " + str.tostring(dealCount), qty = baseOrderAmount / close)
     lastDCAPrice := baseOrderAmount
-    dealcount := dealcount + 1
-    addcounter := 1
+    dealCount := dealCount + 1
+    addCounter := 1
     allqty := baseOrderAmount / close
     totalLongTrades := 1
     alert("新做多交易 {{ticker}}", freq=alert.freq_once_per_bar_close)
 
-// 2：DCA加仓
+// 2.2 DCA加仓
 if (long and 
      totalLongTrades > 0 and 
      totalLongTrades < numberOfDCAOrders and 
      close <= strategy.position_avg_price * (1-addPercent))
     lastDCAPrice := lastDCAPrice * dcaMultiplier
     strategy.order(id="LONG", direction=strategy.long, comment = "LongAdd # " + str.tostring(addcounter), qty = lastDCAPrice / close)
-    addcounter := addcounter + 1
+    addCounter := addCounter + 1
     allqty := allqty + lastDCAPrice / close
     totalLongTrades := totalLongTrades + 1
     alert("新DCA加仓 {{ticker}}", freq=alert.freq_once_per_bar_close)
 
-// 3：信号、止盈、止损平仓
+// 2.3 信号、止盈、止损平仓
 if (totalLongTrades > 0)
     // 止盈是总仓位的x%的方案
     // if short and close > strategy.position_avg_price * (1 + takeProfitPercent)
@@ -122,7 +113,7 @@ if (totalLongTrades > 0)
     if short and strategy.openprofit >= strategy.equity * takeProfitPercent
         strategy.close(id="LONG", comment="Take Profit" + str.tostring(strategy.opentrades))
         alert("止盈平仓 {{ticker}}", freq=alert.freq_once_per_bar_close)
-        addcounter := 0
+        addCounter := 0
         plotPNLLabel()
         totalLongTrades := 0
         strategy.order(id="SHORT", direction=strategy.short, comment = "Short Open", qty = baseOrderAmount / close)
@@ -133,7 +124,7 @@ if (totalLongTrades > 0)
     else if short and strategy.openprofit <= strategy.equity * -stopLossPercent
         strategy.close(id="LONG", comment="Stop Loss" + str.tostring(strategy.opentrades))
         alert("止损平仓 {{ticker}}", freq=alert.freq_once_per_bar_close)
-        addcounter := 0
+        addCounter := 0
         totalLongTrades := 0
         strategy.order(id="SHORT", direction=strategy.short, comment = "Short Open", qty = baseOrderAmount / close)
         plotPNLLabel()
@@ -145,7 +136,7 @@ addTopLine = plot(displayDealLines ?  strategy.position_avg_price * (1 + addPerc
 addDownLine = plot(displayDealLines ? strategy.position_avg_price * (1 - addPercent): na, "add下线", color=yellow, style=plot.style_linebr, editable=false)
 
 
-//右上角交易状态======={
+// 3 右上角交易状态
 // 查看是否已开仓
 isOpenTrade() =>
     strategy.opentrades > 0 ? true : false
@@ -182,4 +173,3 @@ fillTable(summary_table) =>
 if barstate.isconfirmed
     table.clear(summary_table, 1, 1, 1, 3)
     fillTable(summary_table)
-//=======}
