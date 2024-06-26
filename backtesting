@@ -83,8 +83,6 @@ if longSignal and totalLongTrades == 0
     strategy.close(id="SHORT", comment="Close Short")
     strategy.order(id="LONG", direction=strategy.long, comment = "LongOpen " , qty = baseOrderAmount / close)
     lastDCAPrice := baseOrderAmount
-    dealCount := dealCount + 1
-    addCounter := 1
     allqty := baseOrderAmount / close
     totalLongTrades := 1
     alert("新做多交易 {{ticker}}", freq=alert.freq_once_per_bar_close)
