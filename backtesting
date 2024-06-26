@@ -10,7 +10,7 @@
 
 // 优化：
 // - 参数改成动态
-// - dca加仓超出本金报错
+// - numberOfDCAOrders应该直接计算出来
 
 // 策略默认设置=======
 strategy("VRM Strategy", 
@@ -42,10 +42,9 @@ float stopLossPercent = input.float(2.0, "止损 (%)", group="SL&TP设置") / 10
 bool displayDealLines = input(true, "是否显示交易线", group="视觉设置")
 
 // 初始化设置
-var int addCounter = 0  // 加仓计数器
+var int addCounter = 1  // 加仓计数器
 var float allqty = 0
 var float lastDCAPrice = 0.0  // 记录上次 DCA 加仓的价格
-var float totalCapitalUsed = 0.0  // 记录总共投入的资金
 var int totalLongTrades = 0
 var int totalShortTrades = 0
 
@@ -104,17 +103,17 @@ if (totalLongTrades > 0)
     if shortSignal and strategy.openprofit >= strategy.equity * takeProfitPercent
         strategy.close(id="LONG", comment="Take Profit" + str.tostring(strategy.opentrades))
         alert("止盈平仓 {{ticker}}", freq=alert.freq_once_per_bar_close)
-        addCounter := 0
+        addCounter := 1
         plotPNLLabel()
         totalLongTrades := 0
-        strategy.order(id="SHORT", direction=strategy.short, comment = "Short Open", qty = baseOrderAmount / close)
+        // strategy.order(id="SHORT", direction=strategy.short, comment = "Short Open", qty = baseOrderAmount / close)
     
     else if shortSignal and strategy.openprofit <= strategy.equity * -stopLossPercent
-        strategy.close(id="LONG", comment="Stop Loss" + str.tostring(strategy.opentrades))
+        strategy.close(id="LONG", comment="Stop Loss" + str.tostring(strategy.opentrades) )
         alert("止损平仓 {{ticker}}", freq=alert.freq_once_per_bar_close)
-        addCounter := 0
+        addCounter := 1
         totalLongTrades := 0
-        strategy.order(id="SHORT", direction=strategy.short, comment = "Short Open", qty = baseOrderAmount / close)
+        // strategy.order(id="SHORT", direction=strategy.short, comment = "Short Open", qty = baseOrderAmount / close)
         plotPNLLabel()
     
 
