@@ -43,7 +43,6 @@ bool displayDealLines = input(true, "是否显示交易线", group="视觉设置
 
 // 初始化设置
 var int addCounter = 0  // 加仓计数器
-var int dealCount = 0  // 交易计数器
 var float allqty = 0
 var float lastDCAPrice = 0.0  // 记录上次 DCA 加仓的价格
 var float totalCapitalUsed = 0.0  // 记录总共投入的资金
@@ -82,7 +81,7 @@ plotPNLLabel() =>
 // 2.1 根据信号决定持仓
 if longSignal and totalLongTrades == 0
     strategy.close(id="SHORT", comment="Close Short")
-    strategy.order(id="LONG", direction=strategy.long, comment = "LongOpen # " + str.tostring(dealCount), qty = baseOrderAmount / close)
+    strategy.order(id="LONG", direction=strategy.long, comment = "LongOpen " , qty = baseOrderAmount / close)
     lastDCAPrice := baseOrderAmount
     dealCount := dealCount + 1
     addCounter := 1
